@@ -239,6 +239,7 @@ class DogGraphicDisplay {
 
 /**
  * Function to initialize the display with a proper Init message
+ * Contains the configurations, that are identical for all types of displays
  * @param {initOptions} options - Object with options for initialization
  */
   initialize(options) {
@@ -261,25 +262,25 @@ class DogGraphicDisplay {
       }
       self._gpioRst = new Gpio(options.pinRst, 'out');
       self._speedHz = options.speedHz || self._maxSpeedHz;
-      // self._lcd = spi.open(options.spiController || 0, options.chipSelect || 0, {threeWire: true}, err => {  
-      //   if (err) {reject(err)};
-      //   self.hwReset(10)
-      //   .then(_ => {
-      //   //Initialize the display
-      //   //Build the init message depending on display type
-      //     self.initMessage = [
-      //       ...self.cmdStartLine(options.line || 0), //0x40
-      //       ...self.cmdViewDirection(options.viewDirection || self._viewDirection), //0xA0 0xC8
-      //       ...self.cmdAllPixelsOn(false), //0xA4
-      //       ...self.cmdInverted(options.inverted || false), //0xA6
-      //       ...self.cmdBiasRatio(options.biasRatio || 0), //0xA2
-      //       ...self.cmdPowerControl(true, true, true), //0x2F
-      //       ...self.cmdBiasVoltageDevider(7), //0x27
-      //       ...self.cmdVolume(options.volume || 16), //0x81 0x10
-      //     ];
-      //     resolve();
-      //   });
-      // });
+      self._lcd = spi.open(options.spiController || 0, options.chipSelect || 0, {threeWire: true}, err => {  
+        if (err) {reject("Failed to open SPI interface.")};
+        self.hwReset(10)
+        .then(_ => {
+        //Initialize the display
+        //Build the init message depending on display type
+          self.initMessage = [
+            ...self.cmdStartLine(options.line || 0), //0x40
+            ...self.cmdViewDirection(options.viewDirection || self._viewDirection), //0xA0 0xC8
+            ...self.cmdAllPixelsOn(false), //0xA4
+            ...self.cmdInverted(options.inverted || false), //0xA6
+            ...self.cmdBiasRatio(options.biasRatio || 0), //0xA2
+            ...self.cmdPowerControl(true, true, true), //0x2F
+            ...self.cmdBiasVoltageDevider(7), //0x27
+            ...self.cmdVolume(options.volume || 16), //0x81 0x10
+          ];
+          resolve();
+        });
+      });
     })
   }
 
