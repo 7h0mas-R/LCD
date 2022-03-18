@@ -17,6 +17,7 @@
 const spi = require('spi-device');
 const Gpio = require('onoff').Gpio;
 const font = require('./font');
+const { setIntervalAsync } = require('set-interval-async/dynamic')
 
 //Objects to simulate enumerations
 
@@ -465,6 +466,91 @@ class DogGraphicDisplay {
           if (printablePages > k+1) {
             await this.moveBy(1,0)
           };
+        }
+    }
+
+  }
+
+  /** Write out full line to the LCD display, filling up empty space with void
+   * @param {string} text - text to output
+   * @param {Font} font - Font Object to use
+   * @param {number} style - one of the style values  
+   */
+  async writeLine(text, font, style) {
+    let map = font.stringToBitmap(text)
+
+    let heightMult = font.pages;
+    if (Buffer.isBuffer(map)) {
+        let colsPerPage = map.length/heightMult;
+        let printableCols = Math.min( colsPerPage,(this._width - this.currentColumn));
+        let printablePages = Math.min(heightMult,(this._ramPages-this.currentPage));
+        let subMap = new Uint8Array(this._width);
+        for (let k = 0; k < printablePages; k++) {  //row index
+          for (let i = 0; i < printableCols; i++) {
+            subMap[i]= map[i*heightMult+k];
+          }
+          for (let i = printableCols; i < this._width; i++) {
+            subMap[i]= 0x00;
+          }
+          await this.transfer(1, subMap);
+          if (printablePages > k+1) {
+            await this.moveBy(1,0)
+          };
+        }
+    }
+
+  }
+
+  /** Write a line to the LCD, that is longer then the width. Let the text swing back and forth.
+   * @param {string} text - text to output
+   * @param {Font} font - Font Object to use
+   * @param {number} style - one of the style values  
+   */
+  swing(text, font, style, page, stepInterval, stepSizePix) {
+    const map = font.stringToBitmap(text)
+    const heightMult = font.pages;
+    const mapCols= map.length;
+    if (Buffer.isBuffer(map)) {
+        let colsPerPage = mapCols/heightMult;
+        let extraCols = Math.max( colsPerPage - this._width,0);
+        let printablePages = Math.min(heightMult,(this._ramPages-page));
+        let subMap = new Uint8Array(this._width);
+        stepInterval = stepInterval || 100;
+        stepSizePix = stepSizePix || 50;
+        page = page || 0;
+        let direction = 1;
+        let startCol = 0;
+        console.log('page:',page,'stepInterval:',stepInterval,'stepSizePix:',stepSizePix);
+        if (extraCols > 0) {
+            return setIntervalAsync(async() => {
+              // await this.moveToColPage(0,page);
+              // await this.transfer(1, new Uint8Array(this._width).fill(0))
+              // await this.moveToColPage(0,page + 1);
+              // await this.transfer(1, new Uint8Array(this._width).fill(0))
+              await this.moveToColPage(0,page)
+              for (let k = 0; k < printablePages; k++) {  //row index
+                for (let i = 0; i < this._width; i++) {
+                  subMap[i]= map[(startCol + i)*heightMult+k];
+                };
+                await this.transfer(1, subMap);
+                if (printablePages > k+1) {
+                    await this.moveBy(1,0);
+                };
+              }          
+              startCol = startCol + direction * stepSizePix;
+              if (startCol > colsPerPage - this._width) {
+                direction = direction * (-1);
+                startCol = colsPerPage - this._width;
+              } else if (startCol <= 0) {
+                direction = direction * (-1);
+                startCol = 0;                
+              } else {
+                startCol = Math.min(startCol + direction * stepSizePix, colsPerPage - this._width)
+              }
+          }, stepInterval);
+        } else {
+          this.moveToColPage(1,page)
+          .then(_ => this.writeLine(text, font, style))
         }
     }
 
