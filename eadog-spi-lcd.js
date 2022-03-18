@@ -505,6 +505,8 @@ class DogGraphicDisplay {
    * @param {string} text - text to output
    * @param {Font} font - Font Object to use
    * @param {number} style - one of the style values  
+   * @param {number} stepInterval - time in ms between movements
+   * @param {number} stepSizePix - number of pixels/columns to move with each step  
    */
   swing(text, font, style, page, stepInterval, stepSizePix) {
     const map = font.stringToBitmap(text)
@@ -520,7 +522,6 @@ class DogGraphicDisplay {
         page = page || 0;
         let direction = 1;
         let startCol = 0;
-        console.log('page:',page,'stepInterval:',stepInterval,'stepSizePix:',stepSizePix);
         if (extraCols > 0) {
             return setIntervalAsync(async() => {
               // await this.moveToColPage(0,page);
@@ -547,6 +548,52 @@ class DogGraphicDisplay {
               } else {
                 startCol = Math.min(startCol + direction * stepSizePix, colsPerPage - this._width)
               }
+          }, stepInterval);
+        } else {
+          this.moveToColPage(1,page)
+          .then(_ => this.writeLine(text, font, style))
+        }
+    }
+
+  }
+
+  /** Write a line to the LCD, that is longer then the width. Divide the text into multiple parts
+   * that are displayed one by one from left to ride repeatedly.
+   * @param {string} text - text to output
+   * @param {Font} font - Font Object to use
+   * @param {number} style - one of the style values  
+   * @param {number} stepInterval - time in ms between movements
+   * @param {number} stepSizePix - number of pixels/columns to move with each step  
+   */
+  step(text, font, style, page, stepInterval) {
+    const map = font.stringToBitmap(text);
+    const heightMult = font.pages;
+    let mapCols= map.length;
+    if (Buffer.isBuffer(map)) {
+        let colsPerPage = mapCols/heightMult;
+        if (colsPerPage > this._width) {
+          let steps = Math.ceil(colsPerPage/this._width);
+          let colsMissing = steps * this._width - colsPerPage;
+          let printablePages = Math.min(heightMult,(this._ramPages-page));
+          let subMap = new Uint8Array(this._width);
+          stepInterval = stepInterval || 100;
+          page = page || 0;
+          let startCol = 0;
+          return setIntervalAsync(async() => {
+            await this.moveToColPage(0,page)
+            for (let k = 0; k < printablePages; k++) {  //row index
+              for (let i = 0; i < this._width; i++) {
+                subMap[i]= map[(startCol + i)*heightMult+k] || 0;
+              };
+              await this.transfer(1, subMap);
+              if (printablePages > k+1) {
+                  await this.moveBy(1,0);
+              };
+            }          
+            startCol = startCol + this._width;
+            if (startCol >= steps * this._width) {
+              startCol = 0;
+            }
           }, stepInterval);
         } else {
           this.moveToColPage(1,page)

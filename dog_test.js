@@ -59,11 +59,11 @@ let d = new Date();
 dogs102.initialize({pinCd: 25, pinRst: 20, speedHz: 800000, viewDirection: 0, volume: 6})
 .then(_ => dogs102.clear())
 .then(_ => {
-    handle = dogs102.swing("das ist ein langer text",font_prop_16px, 1, 1, 400, 15);
-    setTimeout(async () => {
-        await clearIntervalAsync(handle);
-        console.log("--- ENDE ---")
-    }, 15000);
+    handle = dogs102.step("Nick Cave and the Bad Seeds - Murder Ballads +++ ",font_prop_16px, 1, 1, 1200);
+    // setTimeout(async () => {
+    //     await clearIntervalAsync(handle);
+    //     console.log("--- ENDE ---")
+    // }, 25000);
 })
 // .then(_=> writeArray(["eins","zwei","drei","vier"],0))
 // .then(_=> writeArray(["zwei","drei","vier","fünf"],0))
