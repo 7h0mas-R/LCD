@@ -14,8 +14,6 @@
 
 'use strict';
 
-const spi = require('spi-device');
-const Gpio = require('onoff').Gpio;
 const font = require('./font');
 const { setIntervalAsync } = require('set-interval-async/dynamic')
 
@@ -85,6 +83,14 @@ const viewDirection = Object.freeze({
   bottom: 0
 })
 
+const animationTypes = Object.freeze({
+  none: 0,      //no animation
+  swingPage: 1, //swing back and forth with step-size of full page
+  swingStep: 2, //swing back and forth with definable step size
+  rotatePage: 3, //wrap around with step-size of full page
+  rotateStep: 4 //wrap around with definable step-size
+})
+
 /* 
 Define commands to access configuration commands for the display
 */
@@ -134,6 +140,10 @@ class DogGraphicDisplay {
     this._lcd = null;
     this._gpioCd = null;
     this._gpioRst = null;
+    this._animationInterval = 1000; //interval in ms
+    this._pageBuffers = [];
+    this._animationStepArrays = [];  //Array containing the animation Steps per display line
+    this._nextAnimationStep = [];
  }
   
   //getter and setter for the speedHz property
@@ -279,12 +289,96 @@ class DogGraphicDisplay {
             ...self.cmdBiasVoltageDevider(7), //0x27
             ...self.cmdVolume(options.volume || 16), //0x81 0x10
           ];
+          self.initializePageBuffers();
           resolve();
         });
       });
     })
   }
 
+  /** Initializes the Buffer-Array that contains the bitmaps for the pages
+  */
+  initializePageBuffers(){
+    for (let i = 0; i < this._ramPages; i++) {
+      this._pageBuffers[i] = new Uint8Array(this._width).fill(0x00);
+      this._animationStepArrays[i]=[0];
+      this._nextAnimationStep[i]=0
+    }
+  }
+
+  /** Sets a line of the pageBuffer Array
+   * @param {number} bufferIdx - index of the first line of the buffer to put the text into 
+   * @param {string} text - text to output
+   * @param {Font} font - Font Object to use
+   * @param {number} style - one of the style values  
+   * @param {number} animationType - 0: no animation 1: swingPage 2: swingStep 3: rotatePage 4: rotateStep
+  */
+  setPageBufferLine(bufferIdx, text, font, style, animationType, stepSize){
+    let map = font.stringToBitmap(text);  
+    let heightMult = font.pages;
+    stepSize = stepSize || 0;
+    if (animationType == animationTypes.rotatePage || animationTypes.swingPage) {
+      stepSize = this._width;
+    }
+    if (Buffer.isBuffer(map)) {
+        let colsPerPage = map.length/heightMult;
+        let pages = Math.ceil(colsPerPage/stepSize);
+        if (stepSize == 0) animationType = 0;
+        let extraCols = pages * this._width - colsPerPage;
+        animationType = animationType || 0; //if no animationType defined, set to no animation
+        for (let k = 0; k < heightMult; k++) {  //row index
+          let subMap = [];
+          for (let i = 0; i < colsPerPage; i++) {
+            subMap[i]= map[i*heightMult+k];
+          }
+          for (let i = colsPerPage; i < extraCols + colsPerPage; i++) {
+            subMap[i]=0x00;
+          }
+          this._pageBuffers[k + bufferIdx]=subMap;
+        }
+        //now define the animation parameters
+        for (let k = 0; k < heightMult; k++) {              
+          this._animationStepArrays[k + bufferIdx] = [];
+          switch (animationType) {
+            case 0: //none
+              this._animationStepArrays[k + bufferIdx].push(0);
+              this._nextAnimationStep[k + bufferIdx] = 0;            
+              break;
+            case 1: //swingPage or swingStep
+            case 2:
+              for (let i = 0; i < pages; i++) {
+                this._animationStepArrays[k + bufferIdx].push(i*this._width);
+              }
+              for (let i = 0; i < pages - 2; i++) {
+                this._animationStepArrays[k + bufferIdx].push(this._animationStepArrays[k + bufferIdx][pages-2-i])
+              }
+              this._nextAnimationStep[k + bufferIdx] = 0;
+              break;
+            case 3: //rotatePage or rotateStep
+            case 4:
+              for (let i = 0; i < pages; i++) {
+                this._animationStepArrays[k + bufferIdx].push(i*this._width);
+              }
+              this._nextAnimationStep[k + bufferIdx] = 0;
+              break;        
+            default:
+              break;
+          }
+        }
+    }
+
+  }
+
+  async refreshDisplayFromBuffer(){
+    for (let i = 0; i < this._ramPages; i++) {
+      let firstCol = this._animationStepArrays[i][this._nextAnimationStep[i]]
+      let subMap = this._pageBuffers[i].slice(firstCol,firstCol+this._width-1);
+      let nextStep = (this._nextAnimationStep[i] + 1) % this._animationStepArrays[i].length;
+      this._nextAnimationStep[i] = nextStep;
+      await this.moveToColPage(0,i);
+      await this.transfer(1,subMap);    
+    }
+  }
 
   /** Returns the current page (line) number (0..RAMPages) */
   get currentPage() {
@@ -396,25 +490,14 @@ class DogGraphicDisplay {
   }
 
   clear() {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve) => {
+      var self = this;
       const message = new Uint8Array(this._width).fill(0);
-      const recursion = (ramPages) => {
-        return new Promise((res) => {
-          this.moveToColPage(0,this._ramPages - ramPages)
-          .then(_ => this.transfer(1,message))
-          .then(_ =>{})
-          .then(_ => {
-            if (ramPages > 1) {
-              return recursion(--ramPages)
-            }
-          })
-          .then(_ => res())
-        })
-      }
-      recursion(this._ramPages)
-      .then(_=> this.moveToColPage(0,0))
-      .then(_=>resolve())
-      .catch(error => reject(error))      
+      for (let i = 0; i < self._ramPages; i++) {
+          await self.moveToColPage(0,i);
+          await self.transfer(1,message);
+      } 
+      resolve();
     });
   }
 
@@ -647,6 +730,118 @@ class DogS102 extends DogGraphicDisplay {
   }
 }
 
+class TTYSimulator extends DogGraphicDisplay {
+  /** Constructor of the TTYSimulator Class
+   * @constructor
+   */
+  constructor () {
+    super();
+    this._width = 102;
+    this._height= 64;
+    this._ramPages= 8;
+    this._pixelsPerByte= 8;
+    this._shiftAddrNormal= 0x00;
+    this._shiftAddrTopview= 0x1e;
+    this._doublePixel= 1; 
+    this._maxSpeedHz= 0;
+    this._lcdType = "TTYSimulator";
+    this.speedHz = this._maxSpeedHz; //need to call the setter again, since the derived class can have higher max speed
+  }
+  /**
+   * Initialize the display with the default settings 
+   * @param {initOptions} options - options
+  */
+ initialize(options){
+    let self = this;
+    return new Promise((resolve, reject) => {
+      if (process.stdout.isTTY) {
+        this._TTY = process.stdout;
+//        this._TTY.setDefaultEncoding('ascii');
+        this._width = this._TTY.columns;
+        this._height = this._TTY.rows;
+        this._currentColumn = 0;
+        this._currentPage = 0;
+        this._linesPerPage = 4;
+        this._ramPages = Math.floor(this._height/this._linesPerPage);
+        this._height = this._ramPages * this._pixelsPerByte;
+        self.initializePageBuffers();
+        resolve();
+      } else {
+        reject('TTY Simulator only works, if it is called from a TTY compatible terminal');
+      }
+    })
+  }
+ /** Moves the cursor to the given position on TTY terminal 
+   * @param {number} page - target page 0..this._ramPages (since 4 lines are needed per ram page, this
+   *                         needs to overwrite the original and allow an offset to be passed)
+   * @param {number} column - target colum: 0..width - 1
+  */
+  moveToColPage(column, page, offset){
+  var self = this;
+  offset = offset || 0;
+  offset = Math.min(offset,3);
+  self._currentColumn=column;
+  self._currentPage = page;
+  return new Promise(function(resolve){
+      if (self._TTY.cursorTo(column,page*self._linesPerPage + offset,()=>{})) {
+          resolve()
+      } else {
+          self._TTY.once("drain", resolve())
+      }
+  })
+  }
+
+  /** Send data to the display
+   * @param {number} messageType - cmd: 0, data:1
+   * @param {Array} msg - Array with byte data values (0..255)
+   */
+  transfer(messageType, msg) {
+    let self = this;
+    return new Promise(async(resolve, reject) => {
+      if (messageType == 1) {   //bitmap data
+        let msgWidth = msg.length;
+        let output = '';
+        if (msgWidth > 0) {
+            let max = Math.min(msgWidth,this._width);
+              for (let i = 0; i < 4; i++) {  //Bit index (pixel)
+                  await this.moveToColPage(this._currentColumn, this._currentPage, i)
+                  for (let j = 0; j < max; j++) {  //column index
+                    switch (msg[j] >> i*2 & 0x03) {
+                      case 0:
+                        output+='\u0020';
+                        break;
+                      case 1:
+                        output+='\u2580';
+                        break;
+                      case 2:
+                        output+='\u2584';
+                        break;
+                      case 3:
+                        output+='\u2588';
+                        break;
+                      default:
+                        break;
+                    }
+                  }
+                  output.padEnd(this._width,' ')
+                  if (self._TTY.write(output,err => {
+                          if (err) reject("Error writing text")
+                      })){
+                  } else {
+                      self._TTY.once("drain")
+                  }
+                  output='';
+              }
+              resolve()
+        }
+      } else {                  //command
+        resolve()
+      }
+    })
+  }
+}
+
 //Define the objects that are exported by the module
+module.exports.TTYSimulator = TTYSimulator;
 module.exports.DogS102 = DogS102;
 module.exports.viewDirection = viewDirection;
