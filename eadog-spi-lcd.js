@@ -142,8 +142,6 @@ class DogGraphicDisplay {
     this._gpioRst = null;
     this._animationInterval = 1000; //interval in ms
     this._pageBuffers = [];
-    this._animationStepArrays = [];  //Array containing the animation Steps per display line
-    this._nextAnimationStep = [];
  }
   
   //getter and setter for the speedHz property
@@ -300,9 +298,13 @@ class DogGraphicDisplay {
   */
   initializePageBuffers(){
     for (let i = 0; i < this._ramPages; i++) {
-      this._pageBuffers[i] = new Uint8Array(this._width).fill(0x00);
-      this._animationStepArrays[i]=[0];
-      this._nextAnimationStep[i]=0
+      this._pageBuffers[i] = {
+        bitmap: new Uint8Array(this._width).fill(0x00),
+        stepSize: this._width,
+        stepCount: 1,
+        animationType: 0,
+        direction: 1,
+        nextStep: 0}
     }
   }
 
@@ -315,68 +317,51 @@ class DogGraphicDisplay {
   */
   setPageBufferLine(bufferIdx, text, font, style, animationType, stepSize){
     let map = font.stringToBitmap(text);  
-    let heightMult = font.pages;
-    stepSize = stepSize || 0;
-    if (animationType == animationTypes.rotatePage || animationTypes.swingPage) {
-      stepSize = this._width;
-    }
     if (Buffer.isBuffer(map)) {
-        let colsPerPage = map.length/heightMult;
-        let pages = Math.ceil(colsPerPage/stepSize);
-        if (stepSize == 0) animationType = 0;
-        let extraCols = pages * this._width - colsPerPage;
-        animationType = animationType || 0; //if no animationType defined, set to no animation
-        for (let k = 0; k < heightMult; k++) {  //row index
-          let subMap = [];
-          for (let i = 0; i < colsPerPage; i++) {
-            subMap[i]= map[i*heightMult+k];
-          }
-          for (let i = colsPerPage; i < extraCols + colsPerPage; i++) {
-            subMap[i]=0x00;
-          }
-          this._pageBuffers[k + bufferIdx]=subMap;
+      if (map.length == 0) map = font.stringToBitmap('---');
+      let heightMult = font.pages;
+      let cols = map.length/heightMult;
+      let maxSteps = Math.ceil(cols/this._width); //number of animation steps from left to right
+      let maxStepSize = (cols-this._width)/(maxSteps - 1) || 0;
+      animationType = animationType || 0; //if no animationType defined, set to no animation
+      if (stepSize == undefined || stepSize == 0 || stepSize > maxStepSize || animationType == animationTypes.rotatePage || animationType == animationTypes.swingPage) {
+        stepSize = maxStepSize;
+      }
+      for (let k = 0; k < heightMult; k++) {  //row index
+        let subMap = [];
+        for (let i = 0; i < cols; i++) {
+          subMap[i]= map[i*heightMult+k];
         }
+        this._pageBuffers[k + bufferIdx].bitmap = subMap;
+        this._pageBuffers[k + bufferIdx].stepCount = Math.ceil((cols-this._width)/stepSize) + 1;
+        this._pageBuffers[k + bufferIdx].stepSize = stepSize;
+        this._pageBuffers[k + bufferIdx].animationType = animationType;
+        this._pageBuffers[k + bufferIdx].direction = 1;
+        this._pageBuffers[k + bufferIdx].nextStep = 0;
+      }
         //now define the animation parameters
-        for (let k = 0; k < heightMult; k++) {              
-          this._animationStepArrays[k + bufferIdx] = [];
-          switch (animationType) {
-            case 0: //none
-              this._animationStepArrays[k + bufferIdx].push(0);
-              this._nextAnimationStep[k + bufferIdx] = 0;            
-              break;
-            case 1: //swingPage or swingStep
-            case 2:
-              for (let i = 0; i < pages; i++) {
-                this._animationStepArrays[k + bufferIdx].push(i*this._width);
-              }
-              for (let i = 0; i < pages - 2; i++) {
-                this._animationStepArrays[k + bufferIdx].push(this._animationStepArrays[k + bufferIdx][pages-2-i])
-              }
-              this._nextAnimationStep[k + bufferIdx] = 0;
-              break;
-            case 3: //rotatePage or rotateStep
-            case 4:
-              for (let i = 0; i < pages; i++) {
-                this._animationStepArrays[k + bufferIdx].push(i*this._width);
-              }
-              this._nextAnimationStep[k + bufferIdx] = 0;
-              break;        
-            default:
-              break;
-          }
-        }
     }
 
   }
 
   async refreshDisplayFromBuffer(){
     for (let i = 0; i < this._ramPages; i++) {
-      let firstCol = this._animationStepArrays[i][this._nextAnimationStep[i]]
-      let subMap = this._pageBuffers[i].slice(firstCol,firstCol+this._width-1);
-      let nextStep = (this._nextAnimationStep[i] + 1) % this._animationStepArrays[i].length;
-      this._nextAnimationStep[i] = nextStep;
+      let firstCol = Math.floor(this._pageBuffers[i].nextStep*this._pageBuffers[i].stepSize);
       await this.moveToColPage(0,i);
-      await this.transfer(1,subMap);    
+      await this.transfer(1,this._pageBuffers[i].bitmap.slice(firstCol, firstCol + this._width));
+      this._pageBuffers[i].nextStep += this._pageBuffers[i].direction;
+      if (this._pageBuffers[i].animationType == animationTypes.swingPage || this._pageBuffers[i].animationType == animationTypes.swingStep) {
+        if (this._pageBuffers[i].nextStep == this._pageBuffers[i].stepCount) {
+          this._pageBuffers[i].nextStep -= 2;
+          this._pageBuffers[i].direction *= -1;
+        }
+        else if (this._pageBuffers[i].nextStep < 0) {
+          this._pageBuffers[i].nextStep += 2;
+          this._pageBuffers[i].direction *= -1;          
+        }
+      } else {
+        this._pageBuffers[i].nextStep %= this._pageBuffers[i].stepCount;
+      }
     }
   }
 
@@ -845,3 +830,4 @@ class TTYSimulator extends DogGraphicDisplay {
 module.exports.TTYSimulator = TTYSimulator;
 module.exports.DogS102 = DogS102;
 module.exports.viewDirection = viewDirection;
+module.exports.animationTypes = animationTypes;
