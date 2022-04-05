@@ -1,0 +1,51 @@
+Modell:
+- Textbreite 51
+- Displaybreite 14
+- Steps = ceil(Textbreite / Displaybreite) = 4
+
+Full Swing
+Start Points: 0,14,28,42,28,14,0,14 usw. n=abs((n + 1)%(steps*2)-steps)*displaybreite
+- inc: n = (n + 1)%((steps - 1) * 2)  ==> 0...5 
+- next: abs(n - steps + 1)*stepbreite ==> abs(-3...2) * stepbreite
+- start mit n = 3 = steps - 1
+Auffüllen mit 0x00 wenn letztes Feld zu kurz
+012345678901234567890123456789012345678901234567890
+|            |
+              |            |
+                            |            |
+                                          |            |
+
+StepSwing 12
+Steps = floor(textbreite/stepbreite) = 4
+Start Points: 0,12,24,36,48,36,...  abs((n+1)%(steps*2)-steps)*stepbreite ==> 4,...,3 * 12, n startet mit 4 (steps)
+012345678901234567890123456789012345678901234567890
+|            |
+            |            |
+                        |            |
+                                    |            |
+                                                |  ..........|
+
+Full Rotate
+Define function wrapAroundSlide
+Start: ((i+1)*stepwidth)%textwidth
+end: 
+012345678901234567890123456789012345678901234567890 012345678901234567890123456789012345678901234567890
+|            |
+              |            |
+                            |            |
+                                          |            |
+                                                        |            |
+                                                                      |            |
+
+Step Rotate 12
+012345678901234567890123456789012345678901234567890012345678901234567890123456789012345678901234567890
+|            |
+            |            |
+                        |            |
+                                    |            |
+                                                |            |
+                                                           |            | 
+
+
+
+

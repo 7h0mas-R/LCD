@@ -9,24 +9,24 @@ var handle;
 
 const viewDirection = lcd.viewDirection;
 const font_fixed_8px = new font.Font();
-font_fixed_8px.loadFontFromJSON('./Fonts_JSON/font_fixed_8px.json')
+font_fixed_8px.loadFontFromJSON('./LCD/Fonts_JSON/font_fixed_8px.json')
 const font_fixed_16px = new font.Font();
-font_fixed_16px.loadFontFromJSON('./Fonts_JSON/font_fixed_16px.json')
+font_fixed_16px.loadFontFromJSON('./LCD/Fonts_JSON/font_fixed_16px.json')
 font_fixed_16px.spacing = 0;
 const font_prop_8px = new font.Font();
-font_prop_8px.loadFontFromJSON('./Fonts_JSON/font_proportional_8px.json')
+font_prop_8px.loadFontFromJSON('./LCD/Fonts_JSON/font_proportional_8px.json')
 const font_prop_16px = new font.Font();
-font_prop_16px.loadFontFromJSON('./Fonts_JSON/font_proportional_16px.json')
+font_prop_16px.loadFontFromJSON('./LCD/Fonts_JSON/font_proportional_16px.json')
 font_prop_16px.spacing = 0;
 const font_digits_24 = new font.Font();
-font_digits_24.loadFontFromJSON('./Fonts_JSON/digits_24px.json')
+font_digits_24.loadFontFromJSON('./LCD/Fonts_JSON/digits_24px.json')
 const font_digits_32 = new font.Font();
-font_digits_32.loadFontFromJSON('./Fonts_JSON/digits_32px.json')
+font_digits_32.loadFontFromJSON('./LCD/Fonts_JSON/digits_32px.json')
 font_digits_32.spacing=0;
 const symbols_8px = new font.Font();
-symbols_8px.loadFontFromJSON('./Fonts_JSON/symbols_8px.json')
+symbols_8px.loadFontFromJSON('./LCD/Fonts_JSON/symbols_8px.json')
 const symbols_16px = new font.Font();
-symbols_16px.loadFontFromJSON('./Fonts_JSON/symbols_16px.json')
+symbols_16px.loadFontFromJSON('./LCD/Fonts_JSON/symbols_16px.json')
 
 const dogs102 = new lcd.TTYSimulator();
 const start = Date.now();
@@ -76,13 +76,14 @@ dogs102.initialize({pinCd: 25, pinRst: 20, speedHz: 800000, viewDirection: 0, vo
 //.then(_ => dogs102.transfer(0,dogs102.cmdAdvProgCtrl(true, true, true)))
 // .then(_ => dogs102.moveBy(-2,50))
 // .then(_ => dogs102.writeText("LCD Simulator",font_fixed_16px))
-// .then(_ => dogs102.setPageBufferLine(0,"Thomas Rohleder wohnt in Hamburg",font_prop_16px,0,lcd.animationTypes.rotatePage,0))
-.then(_ => dogs102.setPageBufferLine(2,"The quick brown fox jumps over the ...",font_prop_8px,0,lcd.animationTypes.rotateStep,33))
-// .then(_ => dogs102.setPageBufferLine(3,"The quick brown fox jumps over the ...",font_prop_8px,0,lcd.animationTypes.swingPage,33))
-// .then(_ => dogs102.setPageBufferLine(4,"Thomas Rohleder wohnt in Hamburg",font_prop_16px,0,lcd.animationTypes.swingStep,33))
-.then(_ => setInterval(() => {
-    dogs102.refreshDisplayFromBuffer()
-}, 1000))
+.then(_ => dogs102.setPageBufferLines(0,"Deutschlandfunk Nachrichten",font_prop_16px,lcd.fontStyle.underlined,lcd.animationTypes.swingPage))
+.then(_ => dogs102.setPageBufferLines(2,"Deutschlandfunk Kultur",font_prop_16px,lcd.fontStyle.strikethrough + lcd.fontStyle.inverted,lcd.animationTypes.swingPage))
+.then(_ => dogs102.setPageBufferLines(4,"Deutschlandfunk Nova",font_prop_16px,lcd.fontStyle.doubleStrikethrough + lcd.fontStyle.doubleUnderline,lcd.animationTypes.swingPage))
+.then(_ => dogs102.setPageBufferLines(6,"Back",font_prop_16px,0,lcd.animationTypes.swingPage))
+.then(_ => dogs102.startAnimation(1000))
+// .then(_ => setTimeout(() => {
+//     dogs102.setPageBufferLines(4,"text geändert - mal schauen",font_prop_16px,0,lcd.animationTypes.swingPage)
+// }, 5000))
 // .then(_=> dogs102.step("19.12.22  16:45",font_prop_8px,0,0,1500))
 // .then(_=> dogs102.step("Radio Hamburg",font_prop_8px,0,1,1500))
 // .then(_=> dogs102.step("Pink Floyd - Wish you were here",font_prop_8px,0,2,1500))

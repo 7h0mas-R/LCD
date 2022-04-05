@@ -16,6 +16,7 @@
 
 const font = require('./font');
 const { setIntervalAsync } = require('set-interval-async/dynamic')
+const fontStyles = require('./font').fontStyle;
 
 //Objects to simulate enumerations
 
@@ -91,11 +92,38 @@ const animationTypes = Object.freeze({
   rotateStep: 4 //wrap around with definable step-size
 })
 
+function wrapAroundSlice(array, start, end){
+  return [...array,...array].slice(start, end < start ? end + array.length:end)
+}
+
+function fillUpSlice(array, start, end, length, style){
+  let a = array.slice(start, end);
+  style = style || 0;
+  let filler = (style & fontStyles.inverted ?2**font._height-1:0);
+  return [...a,...Array(length > a.length ? length - a.length : 0).fill(filler)]
+}
+
+
+//OBJECT for storing the data for one line of the display
+/** Constructor for PageBufferLine. Initializes a line with the parameters passed to it.
+  * @constructor
+  * @param {Array} bitmap - Array of bytes containing the bitmap
+  * @param {number} stepCount - number of steps to cover the full bitmap
+  * @param {number} stepSize - step width in number of columns 
+  * @param {number} nextStep - column number of the next animation step to show
+  * @param {number} animationType - 0: no animation 1: swingPage 2: swingStep 3: rotatePage 4: rotateStep
+*/
+function PageBufferLine (bitmap, stepCount, stepSize, nextStep, animationType){
+  this.bitmap = new Buffer.from(bitmap);
+  this.stepCount = stepCount;
+  this.stepSize = stepSize;
+  this.nextStep = nextStep;
+  this.animationType = animationType;
+}
+
 /* 
 Define commands to access configuration commands for the display
 */
-
-
 /** 
  * @typedef initOptions
  * @property {number} [pinCd] GPIO pin of the CD line (MANDATORY)
@@ -298,69 +326,104 @@ class DogGraphicDisplay {
   */
   initializePageBuffers(){
     for (let i = 0; i < this._ramPages; i++) {
-      this._pageBuffers[i] = {
-        bitmap: new Uint8Array(this._width).fill(0x00),
-        stepSize: this._width,
-        stepCount: 1,
-        animationType: 0,
-        direction: 1,
-        nextStep: 0}
+      this._pageBuffers[i] = new PageBufferLine(new Uint8Array(this._width).fill(0x00), 1, this._width, 0, 0);
+    }
+  }
+  
+  startAnimation(interval){
+    interval = interval || 1000;
+    interval = interval < 100 ? 100: interval;
+    this._animationInterval = interval;
+    this._animationTimer = setInterval(() => {
+      this.refreshDisplayFromBuffer()
+    }, interval);
+    return;
+  }
+
+  stopAnimation(){
+    if (this._animationTimer != undefined){
+      clearInterval(this._animationTimer)
     }
   }
 
-  /** Sets a line of the pageBuffer Array
-   * @param {number} bufferIdx - index of the first line of the buffer to put the text into 
-   * @param {string} text - text to output
-   * @param {Font} font - Font Object to use
-   * @param {number} style - one of the style values  
-   * @param {number} animationType - 0: no animation 1: swingPage 2: swingStep 3: rotatePage 4: rotateStep
-  */
-  setPageBufferLine(bufferIdx, text, font, style, animationType, stepSize){
-    let map = font.stringToBitmap(text);  
+  /** Write to the array of PageBufferLines. Initializes one or more lines with the text passed to it in the font specified with 
+  * parameters configured for the animation type defined. Optional parameter stepSize allows to set the number of columns
+  * the animation will proceed per step.
+  * Call this from the LCD display object with the right context using .apply
+  * @param {number} lineIndex - index of the startline 0 <= lineIndex <= pages of the display
+  * @param {string} text - text to output
+  * @param {Font} font - Font Object to use
+  * @param {number} [style] - one of the style values  
+  * @param {number} [animationType] - 0: no animation 1: swingPage 2: swingStep 3: rotatePage 4: rotateStep
+  * @param {number} [stepSize] - Number of columns per animation step (1 < stepSize < display width)
+*/
+  setPageBufferLines (lineIndex,text, font, style, animationType, stepSize){
+    let map = font.stringToBitmap(text,style);
     if (Buffer.isBuffer(map)) {
-      if (map.length == 0) map = font.stringToBitmap('---');
+      animationType = animationType || 0; //if no animationType defined, set to no animation
+      style = style || 0;
       let heightMult = font.pages;
       let cols = map.length/heightMult;
-      let maxSteps = Math.ceil(cols/this._width); //number of animation steps from left to right
-      let maxStepSize = (cols-this._width)/(maxSteps - 1) || 0;
-      animationType = animationType || 0; //if no animationType defined, set to no animation
-      if (stepSize == undefined || stepSize == 0 || stepSize > maxStepSize || animationType == animationTypes.rotatePage || animationType == animationTypes.swingPage) {
-        stepSize = maxStepSize;
+      if (cols < this._width) animationType = 0;
+      if (stepSize == undefined || stepSize == 0 || stepSize > this._width || animationType == animationTypes.rotatePage || animationType == animationTypes.swingPage) {
+        stepSize = this._width;
       }
+      let steps = Math.ceil(cols/stepSize); //number of full animation steps from left to right
       for (let k = 0; k < heightMult; k++) {  //row index
         let subMap = [];
         for (let i = 0; i < cols; i++) {
           subMap[i]= map[i*heightMult+k];
         }
-        this._pageBuffers[k + bufferIdx].bitmap = subMap;
-        this._pageBuffers[k + bufferIdx].stepCount = Math.ceil((cols-this._width)/stepSize) + 1;
-        this._pageBuffers[k + bufferIdx].stepSize = stepSize;
-        this._pageBuffers[k + bufferIdx].animationType = animationType;
-        this._pageBuffers[k + bufferIdx].direction = 1;
-        this._pageBuffers[k + bufferIdx].nextStep = 0;
+        let fillUpCols = this._width - (cols % this._width);
+        let filler = (style & fontStyles.inverted ?2**font._height-1:0);
+        switch (animationType) {
+          case animationTypes.swingPage:  //1
+          case animationTypes.swingStep:  //2
+            // subMap.push(...Array(fillUpCols).fill(0)); //fill up to full multiples of display width
+            this._pageBuffers[k+lineIndex] = new PageBufferLine([...subMap,...Array(fillUpCols).fill(filler)],steps, stepSize,steps - 1,animationType);
+            break;
+          case animationTypes.rotatePage:  //3
+          case animationTypes.rotateStep:  //4
+            // subMap.push(...Array(20).fill(0));
+            this._pageBuffers[k+lineIndex] = new PageBufferLine(subMap,steps,stepSize,0,animationType);
+            break;
+          default:
+            subMap.slice(0,this._width);
+            // subMap.push(...Array(this._width - subMap.length).fill(0)); //fill up to full multiples of display width
+            this._pageBuffers[k+lineIndex] = new PageBufferLine([...subMap,...Array(fillUpCols).fill(filler)],0,0,0,0);
+            break;
+        }
       }
-        //now define the animation parameters
     }
-
   }
 
   async refreshDisplayFromBuffer(){
+    let buffers = this._pageBuffers;
     for (let i = 0; i < this._ramPages; i++) {
-      let firstCol = Math.floor(this._pageBuffers[i].nextStep*this._pageBuffers[i].stepSize);
+      let firstCol = 0;
+      let lastCol = this._width - 1;
       await this.moveToColPage(0,i);
-      await this.transfer(1,this._pageBuffers[i].bitmap.slice(firstCol, firstCol + this._width));
-      this._pageBuffers[i].nextStep += this._pageBuffers[i].direction;
-      if (this._pageBuffers[i].animationType == animationTypes.swingPage || this._pageBuffers[i].animationType == animationTypes.swingStep) {
-        if (this._pageBuffers[i].nextStep == this._pageBuffers[i].stepCount) {
-          this._pageBuffers[i].nextStep -= 2;
-          this._pageBuffers[i].direction *= -1;
-        }
-        else if (this._pageBuffers[i].nextStep < 0) {
-          this._pageBuffers[i].nextStep += 2;
-          this._pageBuffers[i].direction *= -1;          
-        }
-      } else {
-        this._pageBuffers[i].nextStep %= this._pageBuffers[i].stepCount;
+      switch (buffers[i].animationType) {
+        case animationTypes.swingPage:
+        case animationTypes.swingStep:  
+          firstCol = Math.abs(buffers[i].nextStep - buffers[i].stepCount + 1)*buffers[i].stepSize;
+          lastCol = firstCol + this._width - 1;
+          await this.transfer(1,fillUpSlice(buffers[i].bitmap,firstCol, lastCol + 1,this._width,buffers[i].style));
+          buffers[i].nextStep = (buffers[i].nextStep + 1)%(2*(buffers[i].stepCount - 1))
+          // console.log(i,"firstCol:",firstCol, "lastCol:",lastCol,"next:",buffers[i].nextStep)
+          break;
+        case animationTypes.rotatePage: //3
+        case animationTypes.rotateStep: //4
+          firstCol = buffers[i].nextStep;
+          lastCol = firstCol + this._width - 1;
+          await this.transfer(1,wrapAroundSlice(buffers[i].bitmap,firstCol, lastCol + 1));
+          buffers[i].nextStep = (buffers[i].nextStep + buffers[i].stepSize)%buffers[i].bitmap.length;      
+          // console.log(i,"firstCol:",firstCol, "lastCol:",lastCol,"next:",buffers[i].nextStep)
+          break;
+        case animationTypes.none:
+        default:
+          await this.transfer(1,fillUpSlice(buffers[i].bitmap,firstCol, lastCol + 1));
+          break;
       }
     }
   }
@@ -518,7 +581,7 @@ class DogGraphicDisplay {
    * @param {number} style - one of the style values  
    */
   async writeText(text, font, style) {
-    let map = font.stringToBitmap(text)
+    let map = font.stringToBitmap(text,style)
 
     let heightMult = font.pages;
     if (Buffer.isBuffer(map)) {
@@ -545,7 +608,7 @@ class DogGraphicDisplay {
    * @param {number} style - one of the style values  
    */
   async writeLine(text, font, style) {
-    let map = font.stringToBitmap(text)
+    let map = font.stringToBitmap(text,style)
 
     let heightMult = font.pages;
     if (Buffer.isBuffer(map)) {
@@ -577,7 +640,7 @@ class DogGraphicDisplay {
    * @param {number} stepSizePix - number of pixels/columns to move with each step  
    */
   swing(text, font, style, page, stepInterval, stepSizePix) {
-    const map = font.stringToBitmap(text)
+    const map = font.stringToBitmap(text,style)
     const heightMult = font.pages;
     const mapCols= map.length;
     if (Buffer.isBuffer(map)) {
@@ -634,7 +697,7 @@ class DogGraphicDisplay {
    * @param {number} stepSizePix - number of pixels/columns to move with each step  
    */
   step(text, font, style, page, stepInterval) {
-    const map = font.stringToBitmap(text);
+    const map = font.stringToBitmap(text,style);
     const heightMult = font.pages;
     let mapCols= map.length;
     if (Buffer.isBuffer(map)) {
@@ -749,6 +812,12 @@ class TTYSimulator extends DogGraphicDisplay {
         this._linesPerPage = 4;
         this._ramPages = Math.floor(this._height/this._linesPerPage);
         this._height = this._ramPages * this._pixelsPerByte;
+        if (self._TTY.write("\x1b]11;#FFFF99\x07",err => {
+                if (err) reject("Error writing text")
+            })){
+        } else {
+            self._TTY.once("drain")
+        }
         self.initializePageBuffers();
         resolve();
       } else {
@@ -831,3 +900,4 @@ module.exports.TTYSimulator = TTYSimulator;
 module.exports.DogS102 = DogS102;
 module.exports.viewDirection = viewDirection;
 module.exports.animationTypes = animationTypes;
+module.exports.fontStyle = font.fontStyle;

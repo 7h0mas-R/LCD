@@ -8,6 +8,15 @@ generate text arrays for use with LCD displays
 const fs = require("fs")
 const path = require("path")
 
+const fontStyle = Object.freeze({
+    normal: 0,
+    inverted: 1,
+    underlined: 2,
+    strikethrough: 4,
+    doubleUnderline: 8,
+    doubleStrikethrough: 16
+})
+
 class Font {
     constructor() {
         this._width = 0;
@@ -53,23 +62,65 @@ class Font {
     get spacing(){return this._spacing}
 
     get pages(){return this._heightBytes}
-    /* 
-    Function to translate a string into an array with a bitmap for the LCD
-    Potential options: 
-    */
-    stringToBitmap(string) {
-        let heightMult = this._heightBytes;
-        let spacing = this._spacing;
-        let maxCols = (this.getStringWidth(string) + (string.length-1) * spacing);
 
-        let stringMap = Buffer.alloc(maxCols*heightMult);
-        let bufPos = 0;
-        for (let i = 0; i < string.length; i++) {
-            var buf = this.getChar(string[i]);
-            buf.copy(stringMap,bufPos,0);
-            bufPos+= buf.length + spacing*heightMult;
+    applyStyle(array, style){
+        if (Buffer.isBuffer(array) && style > 0) {
+            let centerPos = this._height/2;
+            let ulinePos = this._heightBytes * 8 - 3;
+            let cols = array.length/this._heightBytes;
+            let mask = 0; //initialize mask with 0s
+            if (style & fontStyle.strikethrough) mask = mask | 1<< centerPos;
+            if (style & fontStyle.underlined) mask = mask | 1<<ulinePos;
+            if (style & fontStyle.doubleStrikethrough) mask = mask | 5<<(centerPos -1);
+            if (style & fontStyle.doubleUnderline) mask = mask | 5<<(ulinePos - 1);
+            if (style & fontStyle.inverted) {
+                for (let i = 0; i < cols; i++) {
+                    array.writeUintLE((~(array.readUintLE(i*this._heightBytes,this._heightBytes) | mask))&(2**this._height -1),i*this._heightBytes,this._heightBytes);
+                }
+            } else {
+                for (let i = 0; i < cols; i++) {
+                    array.writeIntLE((array.readUintLE(i*this._heightBytes,this._heightBytes) | mask),i*this._heightBytes,this._heightBytes);
+                }
+            }
+            return array;
+        } else {
+            return 0
         }
-        return stringMap
+    }
+    
+    getSpacer(style){
+        style = style || 0;
+        var spacer = Buffer.alloc(this._spacing*this._heightBytes);
+        return spacer;
+    }
+    /**
+     * Function to translate a string into an array with a bitmap for the LCD
+     * Potential options: 
+     * 
+     * @param {string} string 
+     * @param {number} style - Text style
+     * @returns 
+     */
+    stringToBitmap(string,style) {
+        if (string != undefined && string.length > 0) {
+            let heightMult = this._heightBytes;
+            let spacing = this._spacing;
+            let stringCols = this.getStringWidth(string);
+
+            let stringMap = Buffer.alloc(stringCols);
+            let bufPos = 0;
+            for (let i = 0; i < string.length; i++) {
+                var buf = this.getChar(string[i], style);
+                buf.copy(stringMap,bufPos,0);
+                bufPos+= buf.length;
+                this.getSpacer(style).copy(stringMap, bufPos, 0)
+                bufPos+= spacing*heightMult;                    
+            }
+            this.applyStyle(stringMap,style);
+            return stringMap;         
+        } else {
+            return 0;
+        }
     }
 
 
@@ -82,7 +133,7 @@ class Font {
         for (let i = 0; i < string.length; i++) {
             width += this.getCharWidth(string[i]);
         }
-        return width
+        return (width + this._spacing * (string.length-1))*this._heightBytes;
     }
 
     /* 
@@ -125,9 +176,9 @@ class Font {
     /* 
     Function that returns a bitmap of a character reading it from the font array
     */
-    getChar(char) {
+    getChar(char, style) {
         let heightMult = this._heightBytes;
-        var bytes = this.getCharWidth(char)*this._heightBytes;
+        var bytes = this.getCharWidth(char)*heightMult;
         var pos = this.getCharPosition(char);
         // let charMap = [...Array(columns)].map(e => Array(heightMult));
         // var charPos = this.getCharPosition(char);
@@ -166,3 +217,4 @@ class Font {
 
 //Define the objects that are exported by the module
 module.exports.Font = Font;
+module.exports.fontStyle = fontStyle;
