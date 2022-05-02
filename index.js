@@ -14,9 +14,9 @@
 
 'use strict';
 
-const font = require('./font');
+const font = require('../Font');
 const { setIntervalAsync } = require('set-interval-async/dynamic')
-const fontStyles = require('./font').fontStyle;
+const fontStyles = require('../Font').fontStyle;
 
 //Objects to simulate enumerations
 

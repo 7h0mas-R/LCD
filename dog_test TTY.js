@@ -1,7 +1,7 @@
 'use strict';
 
-const font = require('./font');
-const lcd = require('./eadog-spi-lcd');
+const font = require('../Font');
+const lcd = require('./index');
 // const { setIntervalAsync } = require('set-interval-async/dynamic');
 // const { clearIntervalAsync } = require('set-interval-async');
 

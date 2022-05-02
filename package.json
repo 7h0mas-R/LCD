@@ -1,0 +1,19 @@
+{
+  "name": "eadog_lcd",
+  "version": "1.0.0",
+  "description": "Supports use of simple serial LCD displays of EA DOG series",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/7h0mas-R/LCD.git"
+  },
+  "author": "7h0mas-R",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/7h0mas-R/LCD/issues"
+  },
+  "homepage": "https://github.com/7h0mas-R/LCD#readme"
+}
