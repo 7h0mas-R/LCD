@@ -356,9 +356,16 @@ class DogGraphicDisplay {
   * @param {number} [style] - one of the style values  
   * @param {number} [animationType] - 0: no animation 1: swingPage 2: swingStep 3: rotatePage 4: rotateStep
   * @param {number} [stepSize] - Number of columns per animation step (1 < stepSize < display width)
+  * @param {string} [separator] - String that is inserted at the end of the text, if during rotation text is longer than the width of the display, to separate the repetitions
 */
-  setPageBufferLines (lineIndex,text, font, style, animationType, stepSize){
-    let map = font.stringToBitmap(text,style);
+  setPageBufferLines (lineIndex,text, font, style, animationType, stepSize, separator){
+    separator = separator || '';
+    let map = Buffer;
+    if (font.getStringWidth(text) > this._width) {
+      map = font.stringToBitmap(text + separator,style);
+    } else {
+      map = font.stringToBitmap(text,style);
+    }
     if (Buffer.isBuffer(map)) {
       animationType = animationType || 0; //if no animationType defined, set to no animation
       style = style || 0;
