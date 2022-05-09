@@ -14,7 +14,8 @@
   "license": "ISC",
   "dependencies": {
     "set-interval-async":"^2.0.3",
-    "font": "git+https://github.com/7h0mas-R/Font.git"
+    "font": "git+https://github.com/7h0mas-R/Font.git",
+    "onoff":"^6.0.3"
   },
   "bugs": {
     "url": "https://github.com/7h0mas-R/LCD/issues"
