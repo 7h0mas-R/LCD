@@ -18,6 +18,10 @@ const font = require('font');
 const { setIntervalAsync } = require('set-interval-async/dynamic')
 const fontStyles = require('font').fontStyle;
 
+if (process.platform == 'linux'){
+  const Gpio = require('onoff')
+}
+
 //Objects to simulate enumerations
 
 // const alignmentValues = Object.freeze({
