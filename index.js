@@ -19,7 +19,8 @@ const { setIntervalAsync } = require('set-interval-async/dynamic')
 const fontStyles = require('font').fontStyle;
 
 if (process.platform == 'linux'){
-  const Gpio = require('onoff')
+  const Gpio = require('onoff');
+  const Spi = require('spi-device');
 }
 
 //Objects to simulate enumerations
