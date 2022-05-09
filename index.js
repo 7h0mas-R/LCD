@@ -18,10 +18,8 @@ const font = require('font');
 const { setIntervalAsync } = require('set-interval-async/dynamic')
 const fontStyles = require('font').fontStyle;
 
-if (process.platform == 'linux'){
-  const Gpio = require('onoff');
-  const Spi = require('spi-device');
-}
+const Gpio = require('onoff').Gpio;
+const Spi = require('spi-device');
 
 //Objects to simulate enumerations
 
@@ -304,7 +302,7 @@ class DogGraphicDisplay {
       }
       self._gpioRst = new Gpio(options.pinRst, 'out');
       self._speedHz = options.speedHz || self._maxSpeedHz;
-      self._lcd = spi.open(options.spiController || 0, options.chipSelect || 0, {threeWire: true}, err => {  
+      self._lcd = new Spi.open(options.spiController || 0, options.chipSelect || 0, {threeWire: true}, err => {  
         if (err) {reject("Failed to open SPI interface.")};
         self.hwReset(10)
         .then(_ => {
