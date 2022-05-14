@@ -18,9 +18,10 @@ const font = require('font');
 const { setIntervalAsync } = require('set-interval-async/dynamic')
 const fontStyles = require('font').fontStyle;
 
-const Gpio = require('onoff').Gpio;
-const Spi = require('spi-device');
-
+if (process.platform != 'darwin') {
+  const Gpio = require('onoff').Gpio;
+  const Spi = require('spi-device');
+}
 //Objects to simulate enumerations
 
 // const alignmentValues = Object.freeze({
