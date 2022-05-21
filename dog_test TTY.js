@@ -1,7 +1,7 @@
 'use strict';
 
-const font = require('../Font');
-const lcd = require('./index');
+const font = require('font');
+const lcd = require('./index.js');
 // const { setIntervalAsync } = require('set-interval-async/dynamic');
 // const { clearIntervalAsync } = require('set-interval-async');
 
@@ -9,24 +9,24 @@ var handle;
 
 const viewDirection = lcd.viewDirection;
 const font_fixed_8px = new font.Font();
-font_fixed_8px.loadFontFromJSON('./LCD/Fonts_JSON/font_fixed_8px.json')
+font_fixed_8px.loadFontFromJSON('font_fixed_8px.json')
 const font_fixed_16px = new font.Font();
-font_fixed_16px.loadFontFromJSON('./LCD/Fonts_JSON/font_fixed_16px.json')
+font_fixed_16px.loadFontFromJSON('font_fixed_16px.json')
 font_fixed_16px.spacing = 0;
 const font_prop_8px = new font.Font();
-font_prop_8px.loadFontFromJSON('./LCD/Fonts_JSON/font_proportional_8px.json')
+font_prop_8px.loadFontFromJSON('font_proportional_8px.json')
 const font_prop_16px = new font.Font();
-font_prop_16px.loadFontFromJSON('./LCD/Fonts_JSON/font_proportional_16px.json')
+font_prop_16px.loadFontFromJSON('font_proportional_16px.json')
 font_prop_16px.spacing = 0;
 const font_digits_24 = new font.Font();
-font_digits_24.loadFontFromJSON('./LCD/Fonts_JSON/digits_24px.json')
+font_digits_24.loadFontFromJSON('digits_24px.json')
 const font_digits_32 = new font.Font();
-font_digits_32.loadFontFromJSON('./LCD/Fonts_JSON/digits_32px.json')
+font_digits_32.loadFontFromJSON('digits_32px.json')
 font_digits_32.spacing=0;
 const symbols_8px = new font.Font();
-symbols_8px.loadFontFromJSON('./LCD/Fonts_JSON/symbols_8px.json')
+symbols_8px.loadFontFromJSON('symbols_8px.json')
 const symbols_16px = new font.Font();
-symbols_16px.loadFontFromJSON('./LCD/Fonts_JSON/symbols_16px.json')
+symbols_16px.loadFontFromJSON('symbols_16px.json')
 
 const dogs102 = new lcd.TTYSimulator();
 const start = Date.now();
