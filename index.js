@@ -22,6 +22,7 @@ if (process.platform != 'darwin') {
   const Gpio = require('onoff').Gpio;
   const Spi = require('spi-device');
 }
+
 //Objects to simulate enumerations
 
 // const alignmentValues = Object.freeze({
