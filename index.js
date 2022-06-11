@@ -18,10 +18,6 @@ const font = require('font');
 const { setIntervalAsync } = require('set-interval-async/dynamic')
 const fontStyles = require('font').fontStyle;
 
-if (process.platform != 'darwin') {
-  const Gpio = require('onoff').Gpio;
-  const Spi = require('spi-device');
-}
 
 //Objects to simulate enumerations
 
@@ -285,6 +281,11 @@ class DogGraphicDisplay {
  * @param {initOptions} options - Object with options for initialization
  */
   initialize(options) {
+    if (process.platform != 'darwin') {
+      const Gpio = require('onoff').Gpio;
+      const Spi = require('spi-device');
+    }
+
     let self = this;
     return new Promise(function(resolve, reject){
       if (options === undefined) { //options was omitted
