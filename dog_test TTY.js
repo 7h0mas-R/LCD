@@ -28,7 +28,7 @@ symbols_8px.loadFontFromJSON('symbols_8px.json')
 const symbols_16px = new font.Font();
 symbols_16px.loadFontFromJSON('symbols_16px.json')
 
-const dogs102 = new lcd.TTYSimulator();
+const dogs102 = new lcd.DogS102();
 const start = Date.now();
 
 function writeArray(arr, line){

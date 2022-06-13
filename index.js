@@ -282,8 +282,9 @@ class DogGraphicDisplay {
  */
   initialize(options) {
     if (process.platform != 'darwin') {
-      const Gpio = require('onoff').Gpio;
-      const Spi = require('spi-device');
+      console.log(' load module onoff')
+      var Gpio = require('onoff').Gpio;
+      var Spi = require('spi-device');
     }
 
     let self = this;
