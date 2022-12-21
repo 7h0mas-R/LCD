@@ -553,16 +553,17 @@ class DogGraphicDisplay {
   }
 
   clear() {
-    return new Promise(async (resolve) => {
+    return new Promise( (resolve, reject) => {
       var self = this;
       const message = new Uint8Array(this._width).fill(0);
+      let promises = [];
       for (let i = 0; i < self._ramPages; i++) {
-          await self.moveToColPage(0,i);
-          await self.transfer(1,message);
+          promises.push(self.moveToColPage(0,i).then(_=> self.transfer(1, message)));
       } 
-      resolve();
+      Promise.all(promises)
+      .then(_=> resolve());
     });
-  }
+ }
 
   /** Send data to the display
    * @param {number} messageType - cmd: 0, data:1
