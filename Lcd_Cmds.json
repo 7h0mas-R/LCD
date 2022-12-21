@@ -1,0 +1,17 @@
+{
+    "lcd_types": [
+        {
+            "vendor": "Electronic Assembly",
+            "model": "DOGS102",
+            "widthPx": 102,
+            "heightPx": 64,
+            "ramPages": 8,
+            "pxPerByte": 8,
+            "shiftAddressNormal": 0,
+            "shiftAddressTopView": 30,
+            "doublePixel": 1,
+            "maxSpeedHz": 33000000,
+            
+        }
+    ]
+}

@@ -256,6 +256,7 @@ class DogGraphicDisplay {
    * @param {number} duration - Duration of the reset pulse in Milliseconds (ms)
    */
   hwReset(duration) {
+    if (duration===undefined) duration = 10;
     return new Promise((resolve, reject) => {
       this._gpioRst.write(0)
       .then(_ => {

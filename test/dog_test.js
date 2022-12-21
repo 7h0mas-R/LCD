@@ -1,7 +1,7 @@
 'use strict';
 
-const font = require('./font');
-const lcd = require('./eadog-spi-lcd');
+const font = require('font');
+const lcd = require('../index.js');
 const { setIntervalAsync } = require('set-interval-async/dynamic');
 const { clearIntervalAsync } = require('set-interval-async');
 
@@ -9,24 +9,24 @@ var handle;
 
 const viewDirection = lcd.viewDirection;
 const font_fixed_8px = new font.Font();
-font_fixed_8px.loadFontFromJSON('./Fonts_JSON/font_fixed_8px.json')
+font_fixed_8px.loadFontFromJSON('font_fixed_8px.json')
 const font_fixed_16px = new font.Font();
-font_fixed_16px.loadFontFromJSON('./Fonts_JSON/font_fixed_16px.json')
+font_fixed_16px.loadFontFromJSON('font_fixed_16px.json')
 font_fixed_16px.spacing = 0;
 const font_prop_8px = new font.Font();
-font_prop_8px.loadFontFromJSON('./Fonts_JSON/font_proportional_8px.json')
+font_prop_8px.loadFontFromJSON('font_proportional_8px.json')
 const font_prop_16px = new font.Font();
-font_prop_16px.loadFontFromJSON('./Fonts_JSON/font_proportional_16px.json')
+font_prop_16px.loadFontFromJSON('font_proportional_16px.json')
 font_prop_16px.spacing = 0;
 const font_digits_24 = new font.Font();
-font_digits_24.loadFontFromJSON('./Fonts_JSON/digits_24px.json')
+font_digits_24.loadFontFromJSON('digits_24px.json')
 const font_digits_32 = new font.Font();
-font_digits_32.loadFontFromJSON('./Fonts_JSON/digits_32px.json')
+font_digits_32.loadFontFromJSON('digits_32px.json')
 font_digits_32.spacing=0;
 const symbols_8px = new font.Font();
-symbols_8px.loadFontFromJSON('./Fonts_JSON/symbols_8px.json')
+symbols_8px.loadFontFromJSON('symbols_8px.json')
 const symbols_16px = new font.Font();
-symbols_16px.loadFontFromJSON('./Fonts_JSON/symbols_16px.json')
+symbols_16px.loadFontFromJSON('symbols_16px.json')
 
 const dogs102 = new lcd.DogS102();
 const start = Date.now();
@@ -57,6 +57,10 @@ let handleTimer
 console.log('Start Chain', Date.now() -start)
 let d = new Date();
 dogs102.initialize({pinCd: 25, pinRst: 20, speedHz: 800000, viewDirection: 0, volume: 6})
+// .then(_ => {
+//     console.log("HW reset");
+//     dogs102.hwReset(10)
+// })
 .then(_ => dogs102.clear())
 .then(_ => {
     handle = dogs102.step("Nick Cave and the Bad Seeds - Murder Ballads +++ ",font_prop_16px, 1, 1, 1200);
