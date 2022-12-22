@@ -13,6 +13,7 @@ console.log('Start Chain', Date.now() -start)
 let d = new Date();
 dogs102.initialize({pinCd: 25, pinRst: 20, speedHz: 800000, viewDirection: 0, volume: 6})
 .then(_ => dogs102.clear())
+.then(_ => dogs102.moveToColPage(4,0))
 .then(_ => dogs102.transfer(1,new Uint8Array(dogs102._width).map(_=> Math.random()*255)))
 .then(_ => dogs102.moveToColPage(4,1))
 .then(_ => dogs102.transfer(1,[0xFF,0xFF,0xFF,0x00,0x00,0x0F,0x0F,0x0F,0x0F,0xF0,0xF0,0xF0,0xF0]))
@@ -28,8 +29,10 @@ dogs102.initialize({pinCd: 25, pinRst: 20, speedHz: 800000, viewDirection: 0, vo
 .then(_ => dogs102.transfer(1,[0xFF,0xFF,0xFF,0x00,0x00,0x0F,0x0F,0x0F,0x0F,0xF0,0xF0,0xF0,0xF0]))
 .then(_ => dogs102.moveToColPage(32,7))
 .then(_ => dogs102.transfer(1,[0xFF,0xFF,0xFF,0x00,0x00,0x0F,0x0F,0x0F,0x0F,0xF0,0xF0,0xF0,0xF0]))
-
 .then(_ => delay(2000))
+.then(_ => dogs102.clearPage(3,0))
+.then(_ => dogs102.clearPage(2,1))
+
 // .then(_ => dogs102.hwReset(10))
 
 //.then(_ => dogs102.moveToColPage(3,3))

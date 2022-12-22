@@ -46,33 +46,36 @@ class DogGraphicDisplay {
   general base class for displays of types DOGL128,DOGM128, DOGM132,DOGS102
   */
 
+  /*---------------
+    Properties
+  */
+    _width = 0;
+    _height= 0;
+    _ramPages= 0;
+    _pixelsPerByte= 0;
+    _shiftAddrNormal= 0x0;
+    _shiftAddrTopview= 0x1E;
+    _doublePixel= 1; 
+    _maxSpeedHz= 10;
+    _speedHz = 10;
+    _lcdType = "base";
+    _currentColumn = 0;
+    _currentPage = 0;
+    _initMessage = [];
+    _shiftAddr = 0;
+    _inverted = false;
+    _viewDirection = 0; //default bottom
+    _chipSelect = 0;
+    _spiController = 0;
+    _lcd = null;
+    _gpioCd = null;
+    _gpioRst = null;
+    _animationInterval = 1000; //interval in ms
+    _pageBuffers = [];
   /** Base Constructor for the displays of types DOGL128,DOGM128, DOGM132,DOGS102  
    * @constructor
   */
   constructor() {
-    this._width = 0;
-    this._height= 0;
-    this._ramPages= 0;
-    this._pixelsPerByte= 0;
-    this._shiftAddrNormal= 0x0;
-    this._shiftAddrTopview= 0x1E;
-    this._doublePixel= 1; 
-    this._maxSpeedHz= 10;
-    this._speedHz = 10;
-    this._lcdType = "base";
-    this._currentColumn = 0;
-    this._currentPage = 0;
-    this._initMessage = [];
-    this._shiftAddr = 0;
-    this._inverted = false;
-    this._viewDirection = 0; //default bottom
-    this._chipSelect = 0;
-    this._spiController = 0;
-    this._lcd = null;
-    this._gpioCd = null;
-    this._gpioRst = null;
-    this._animationInterval = 1000; //interval in ms
-    this._pageBuffers = [];
  }
   
   //getter and setter for the speedHz property
@@ -279,6 +282,33 @@ class DogGraphicDisplay {
 
   // }
 
+  /** clears count columns from current page at current cursor position 
+   * @param {number} count - number of colums: 1..this._width
+   * @param {number} style - 0:normal, 1: inverse
+  */
+  clearColumns(count, style){
+    return new Promise((resolve, reject)=>{
+      count = Math.min (count, this.width - this.currentColumn);
+      this.transfer(1, Array(count).fill((style ==1) ? 0xFF:0x00))
+      .then(_=> resolve())
+      .catch(err => reject(err))
+    })
+  }
+
+  /** clears current page 
+   * @param {number} style - 0:normal, 1: inverse
+   * @param {number} page - page to clear: 0..this._ramPages - 1
+  */
+  clearPage(page, style){
+    return new Promise((resolve, reject)=>{
+      let count = this._width;
+      this.moveToColPage(0,page)
+      .then(_=> this.transfer(1, Array(count).fill((style ==1) ? 0xFF:0x00)))
+      .then(_=> resolve())
+      .catch(err => reject(err))
+    })
+  }
+
   /** clears area of columns height and pages width at current cursor position 
    * @param {number} pages - number of pages 1..this._ramPages
    * @param {number} columns - number of colums: 1..this._width
@@ -305,7 +335,7 @@ class DogGraphicDisplay {
     this.clearArea(pages, columns, style)
   }
   /** Moves the cursor to the given position on the display 
-   * @param {number} page - target page 0..this._ramPages
+   * @param {number} page - target page 0..this._ramPages -1
    * @param {number} column - target colum: 0..width - 1
   */
   moveToColPage(column, page){
@@ -341,15 +371,13 @@ class DogGraphicDisplay {
   }
 
   clear() {
-    return new Promise( (resolve, reject) => {
+    return new Promise(async (resolve) => {
       var self = this;
-      const message = new Uint8Array(this._width).fill(0);
       let promises = [];
       for (let i = 0; i < self._ramPages; i++) {
-          promises.push(self.moveToColPage(0,i).then(_=> self.transfer(1, message)));
+          await self.clearPage(i,0);
+          if (i + 1 == self._ramPages) resolve() 
       } 
-      Promise.all(promises)
-      .then(_=> resolve());
     });
   }
 
@@ -368,6 +396,7 @@ class DogGraphicDisplay {
       self._gpioCd.write(messageType)
       .then(_ => {
         return new Promise((res, rej) => {
+//          console.log(message);
           self._lcd.transfer(message, err => {
             if (err) {rej(err)} else {res()}
           })
