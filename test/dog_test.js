@@ -62,7 +62,7 @@ dogs102.initialize({pinCd: 9, pinRst: 7, speedHz: 800000, viewDirection: 0, volu
 //     dogs102.hwReset(10)
 // })
 .then(_ => dogs102.clear())
-.then(_=> dogs102.backglightOn())
+.then(_=> dogs102.backlightOn())
 .then(_ => {
     console.log('next write');  
     handle = dogs102.step("Nick Cave and the Bad Seeds - Murder Ballads +++ ",font_prop_16px, 1, 1, 1200);

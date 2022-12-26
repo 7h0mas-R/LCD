@@ -600,7 +600,7 @@ class DogGraphicDisplay {
     });
   }
 
-  backglightOn(){
+  backlightOn(){
     var self = this;
     return new Promise((resolve)=>{
       self._gpioBacklight.write(1);
@@ -608,7 +608,7 @@ class DogGraphicDisplay {
     });
   }
 
-  backglightOff(){
+  backlightOff(){
     var self = this;
     return new Promise((resolve)=>{
       self._gpioBacklight.write(0);
