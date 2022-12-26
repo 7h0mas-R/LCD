@@ -3,8 +3,8 @@
 const Spi = require('spi-device')
 const Gpio = require('onoff').Gpio
 
-const rstPin = new Gpio(20, 'out');
-const cdPin = new Gpio(25,'out');
+const rstPin = new Gpio(7, 'out');
+const cdPin = new Gpio(9,'out');
 
 const lcd = new Spi.open(0,0, err =>{
     if (err) {throw err};

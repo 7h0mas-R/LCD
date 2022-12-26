@@ -129,6 +129,7 @@ Define commands to access configuration commands for the display
  * @typedef initOptions
  * @property {number} [pinCd] GPIO pin of the CD line (MANDATORY)
  * @property {number} [pinRst] - GPIO pin of the RST line (MANDATORY)
+ * @property {number} [pinBacklight] - GPIO pin of the Backlight line (OPTIONAL)
  * @property {number} [speedHz] - the communication speed to the display, default: as defined in derived constructor 
  * @property {number} [spiController=0] - the SPI controller, e.g. 1=SPI1, default: 0=SPI0
  * @property {number} [chipSelect=0] - the Chipselect line, e.g. 0=SPIx.0, default:0
@@ -168,6 +169,7 @@ class DogGraphicDisplay {
     _lcd = null;
     _gpioCd = null;
     _gpioRst = null;
+    _gpioBacklight = null;
     _animationInterval = 1000; //interval in ms
     _pageBuffers = [];
   /** Base Constructor for the displays of types DOGL128,DOGM128, DOGM132,DOGS102  
@@ -309,6 +311,11 @@ class DogGraphicDisplay {
         return;
       }
       self._gpioRst = new Gpio(options.pinRst, 'out');
+      //define GPIO pin for Backglight
+      if (options.pinBacklight != undefined && options.pinBacklight != null) {
+        self._gpioBacklight = new Gpio(options.pinBacklight, 'out');
+      }
+
       self._speedHz = options.speedHz || self._maxSpeedHz;
       self._lcd = new Spi.open(options.spiController || 0, options.chipSelect || 0, {threeWire: true}, err => {  
         if (err) {reject("Failed to open SPI interface.")};
@@ -593,6 +600,22 @@ class DogGraphicDisplay {
     });
   }
 
+  backglightOn(){
+    var self = this;
+    return new Promise((resolve)=>{
+      self._gpioBacklight.write(1);
+      resolve();
+    });
+  }
+
+  backglightOff(){
+    var self = this;
+    return new Promise((resolve)=>{
+      self._gpioBacklight.write(0);
+      resolve();
+    });
+  }
+
   /** Send data to the display
    * @param {number} messageType - cmd: 0, data:1
    * @param {Array} msg - Array with byte data values (0..255)
@@ -780,8 +803,9 @@ class DogGraphicDisplay {
   }
 
   close() {
-      this._gpioCd.unexport()
-      this._gpioRst.unexport()
+      this._gpioCd.unexport();
+      this._gpioRst.unexport();
+      this._gpioBacklight.unexport();
   }
 }
 /** A class for interacting with an Electronic Assembly - DOGS102 Lcd Display*/ 

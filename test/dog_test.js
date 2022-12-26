@@ -56,13 +56,15 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 let handleTimer
 console.log('Start Chain', Date.now() -start)
 let d = new Date();
-dogs102.initialize({pinCd: 25, pinRst: 20, speedHz: 800000, viewDirection: 0, volume: 6})
+dogs102.initialize({pinCd: 9, pinRst: 7, speedHz: 800000, viewDirection: 0, volume: 6, pinBacklight: 25})
 // .then(_ => {
 //     console.log("HW reset");
 //     dogs102.hwReset(10)
 // })
 .then(_ => dogs102.clear())
+.then(_=> dogs102.backglightOn())
 .then(_ => {
+    console.log('next write');  
     handle = dogs102.step("Nick Cave and the Bad Seeds - Murder Ballads +++ ",font_prop_16px, 1, 1, 1200);
     // setTimeout(async () => {
     //     await clearIntervalAsync(handle);
