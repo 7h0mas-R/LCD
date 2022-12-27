@@ -17,6 +17,8 @@ Extendable with different LCD models by inheriting from base-class and overwriti
 
 ## Methods
 ### Constructor
+### openInterface(spiOptions)
+### closeInterface()
 ### initialize(options){
 ### clearColumns(count, style) - tested
 Clears `count` columns on the current page from the current cursor position. If count is larger than the amount of columns to the right, the number gets subtracted.

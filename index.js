@@ -25,15 +25,22 @@ const viewDirection = Object.freeze({
 })
 
 /* 
+Define commands for configuration of SPI interface in constructor
+*/
+/** 
+ * @typedef spiOptions
+ * @property {number} [pinCd] GPIO pin of the CD line (MANDATORY)
+ * @property {number} [pinRst] - GPIO pin of the RST line (MANDATORY)
+ * @property {number} [spiController=0] - the SPI controller, e.g. 1=SPI1, default: 0=SPI0
+ * @property {number} [chipSelect=0] - the Chipselect line, e.g. 0=SPIx.0, default:0
+/* 
+
+/* 
 Define commands to access configuration commands for the display
 */
 /** 
  * @typedef initOptions
- * @property {number} [pinCd] GPIO pin of the CD line (MANDATORY)
- * @property {number} [pinRst] - GPIO pin of the RST line (MANDATORY)
  * @property {number} [speedHz] - the communication speed to the display, default: as defined in derived constructor 
- * @property {number} [spiController=0] - the SPI controller, e.g. 1=SPI1, default: 0=SPI0
- * @property {number} [chipSelect=0] - the Chipselect line, e.g. 0=SPIx.0, default:0
  * @property {number} [viewDirection=0] - Display viewed from 1=top or 0=bottom, default: bottom
  * @property {number} [line=0] - start line of the display 0...63
  * @property {boolean} [inverted=false] - display inverted, true or false 
@@ -72,12 +79,66 @@ class DogGraphicDisplay {
     _gpioRst = null;
     _animationInterval = 1000; //interval in ms
     _pageBuffers = [];
+    _interfaceOpened = false; 
   /** Base Constructor for the displays of types DOGL128,DOGM128, DOGM132,DOGS102  
    * @constructor
   */
-  constructor() {
- }
+  constructor(spiOptions) {
+  }
   
+/**
+ * Function to initialize the display with a proper Init message
+ * Contains the configurations, that are identical for all types of displays
+ * @param {spiOptions} spiOptions - Object with options for initialization
+ */
+  openInterface(spiOptions) {
+    console.log('load module onoff')
+    var Gpio = require('onoff').Gpio;
+    var Spi = require('spi-device');
+
+    let self = this;
+    return new Promise(function(resolve, reject){
+      if (spiOptions === undefined) { //options was omitted
+          reject(new Error('LCD openInterface: Options cannot be omitted.'));
+          return;
+      }
+      //define GPIO pin for CD (config/data)
+      if (spiOptions.pinCd === undefined || spiOptions.pinCd === null) {
+        reject('LCD openInterface: Options "pinCd" is mandatory!');
+        return;
+      }
+      self._gpioCd =  new Gpio(spiOptions.pinCd,'out'); 
+      //define GPIO pin for reset
+      if (spiOptions.pinRst === undefined || spiOptions.pinRst === null) {
+        reject('LCD openInterface: Options "pinCd" is mandatory!');
+        return;
+      }
+      self._gpioRst = new Gpio(spiOptions.pinRst, 'out');
+      self._lcd = new Spi.open(spiOptions.spiController || 0, spiOptions.chipSelect || 0, {threeWire: true}, err => {  
+        if (err) {reject("LCD openInterface: Failed to open SPI interface.")};
+        self._interfaceOpened = true;
+        resolve();
+      })
+    })
+  }
+
+  closeInterface() {
+    return new Promise((resolve, reject) => {
+      this._gpioCd.unexport();
+      this._gpioRst.unexport();
+      this._lcd.close(err => {
+        if (err) {
+          this._interfaceOpened = false;
+          reject("LCD closeInterface: closing Interface failed")
+        }
+        else { 
+          this._interfaceOpened = false;
+          resolve()
+        }
+      })
+    })
+  }
+
   //getter and setter for the speedHz property
   /** Set the speed of the SPI interface - if you have issues with transmission, reduce
    *  speed to 20000 or lower
@@ -187,51 +248,30 @@ class DogGraphicDisplay {
  * @param {initOptions} options - Object with options for initialization
  */
   initialize(options) {
-    if (process.platform != 'darwin') {
-      console.log(' load module onoff')
-      var Gpio = require('onoff').Gpio;
-      var Spi = require('spi-device');
-    }
-
-    let self = this;
-    return new Promise(function(resolve, reject){
-      if (options === undefined) { //options was omitted
-          reject(new Error('eadog-spi-lcd.Init: Options cannot be omitted. "pinCd" and "pinRst" are mandatory.'));
-          return;
-      }
-      //define GPIO pin for CD (config/data)
-      if (options.pinCd === undefined || options.pinCd === null) {
-        reject('eadog-spi-lcd.Init: Options "pinCd" and "pinRst" are mandatory!');
-        return;
-      }
-      self._gpioCd =  new Gpio(options.pinCd,'out'); 
-      //define GPIO pin for reset
-      if (options.pinRst === undefined || options.pinRst === null) {
-        reject('eadog-spi-lcd.Init: Options "pinCd" and "pinRst" are mandatory!');
-        return;
-      }
-      self._gpioRst = new Gpio(options.pinRst, 'out');
-      self._speedHz = options.speedHz || self._maxSpeedHz;
-      self._lcd = new Spi.open(options.spiController || 0, options.chipSelect || 0, {threeWire: true}, err => {  
-        if (err) {reject("Failed to open SPI interface.")};
-        self.hwReset(10)
-        .then(_ => {
-        //Initialize the display
-        //Build the init message depending on display type
-          self.initMessage = [
-            ...self.cmdStartLine(options.line || 0), //0x40
-            ...self.cmdViewDirection(options.viewDirection || self._viewDirection), //0xA0 0xC8
-            ...self.cmdAllPixelsOn(false), //0xA4
-            ...self.cmdInverted(options.inverted || false), //0xA6
-            ...self.cmdBiasRatio(options.biasRatio || 0), //0xA2
-            ...self.cmdPowerControl(true, true, true), //0x2F
-            ...self.cmdBiasVoltageDevider(7), //0x27
-            ...self.cmdVolume(options.volume || 16), //0x81 0x10
-          ];
-          resolve();
-        });
-      });
-    })
+      var self = this;
+      return new Promise ((resolve, reject)=>{
+        self._speedHz = options.speedHz || self._maxSpeedHz;
+        if (self._interfaceOpened){
+          self.hwReset(10)
+          .then(_ => {
+          //Initialize the display
+          //Build the init message depending on display type
+            self.initMessage = [
+              ...self.cmdStartLine(options.line || 0), //0x40
+              ...self.cmdViewDirection(options.viewDirection || self._viewDirection), //0xA0 0xC8
+              ...self.cmdAllPixelsOn(false), //0xA4
+              ...self.cmdInverted(options.inverted || false), //0xA6
+              ...self.cmdBiasRatio(options.biasRatio || 0), //0xA2
+              ...self.cmdPowerControl(true, true, true), //0x2F
+              ...self.cmdBiasVoltageDevider(7), //0x27
+              ...self.cmdVolume(options.volume || 16), //0x81 0x10
+            ];
+            resolve();
+          });
+        } else {
+          reject("LCD initialize: spiInterface not open. call openInterface first")
+        };
+      })
   }
 
   /** Returns the current page (line) number (0..RAMPages) */
@@ -566,11 +606,6 @@ class DogGraphicDisplay {
     }
 
   }
-
-  close() {
-      this._gpioCd.unexport()
-      this._gpioRst.unexport()
-  }
 }
 /** A class for interacting with an Electronic Assembly - DOGS102 Lcd Display*/ 
 class DogS102 extends DogGraphicDisplay {
@@ -590,6 +625,7 @@ class DogS102 extends DogGraphicDisplay {
     this._lcdType = "EA DOGS102";
     this.speedHz = this._maxSpeedHz; //need to call the setter again, since the derived class can have higher max speed
   }
+
   /**
    * Initialize the display with the default settings 
    * @param {initOptions} options - options

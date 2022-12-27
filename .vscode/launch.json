@@ -7,12 +7,12 @@
         {
             "type": "pwa-node",
             "request": "launch",
-            "name": "Launch dog_test TTY",
+            "name": "Launch dog_test.js",
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "program": "${workspaceFolder}/dog_test TTY.js",
-            "console": "externalTerminal"
+            "program": "${workspaceFolder}/test/dog_test.js",
+            "console": "integratedTerminal"
         }
     ]
 }
