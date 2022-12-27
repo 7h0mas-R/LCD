@@ -115,7 +115,7 @@ function fillUpSlice(array, start, end, length, style){
   * @param {number} animationType - 0: no animation 1: swingPage 2: swingStep 3: rotatePage 4: rotateStep
 */
 function PageBufferLine (bitmap, stepCount, stepSize, nextStep, animationType){
-  this.bitmap = new Buffer.from(bitmap);
+  this.bitmap = bitmap;
   this.stepCount = stepCount;
   this.stepSize = stepSize;
   this.nextStep = nextStep;
@@ -378,13 +378,13 @@ class DogGraphicDisplay {
 */
   setPageBufferLines (lineIndex,text, font, style, animationType, stepSize, separator){
     separator = separator || '';
-    let map = Buffer;
+    let map = [];
     if (font.getStringWidth(text) > this._width) {
       map = font.stringToBitmap(text + separator,style);
     } else {
       map = font.stringToBitmap(text,style);
     }
-    if (Buffer.isBuffer(map)) {
+    if (map.length>0) {
       animationType = animationType || 0; //if no animationType defined, set to no animation
       style = style || 0;
       let heightMult = font.pages;
@@ -652,7 +652,7 @@ class DogGraphicDisplay {
     let map = font.stringToBitmap(text,style)
 
     let heightMult = font.pages;
-    if (Buffer.isBuffer(map)) {
+    if (map.length>0) {
         let colsPerPage = map.length/heightMult;
         let printableCols = Math.min( colsPerPage,(this._width - this.currentColumn));
         let printablePages = Math.min(heightMult,(this._ramPages-this.currentPage));
@@ -679,7 +679,7 @@ class DogGraphicDisplay {
     let map = font.stringToBitmap(text,style)
 
     let heightMult = font.pages;
-    if (Buffer.isBuffer(map)) {
+    if (map.length>0) {
         let colsPerPage = map.length/heightMult;
         let printableCols = Math.min( colsPerPage,(this._width - this.currentColumn));
         let printablePages = Math.min(heightMult,(this._ramPages-this.currentPage));
@@ -711,7 +711,7 @@ class DogGraphicDisplay {
     const map = font.stringToBitmap(text,style)
     const heightMult = font.pages;
     const mapCols= map.length;
-    if (Buffer.isBuffer(map)) {
+    if (map.length>0) {
         let colsPerPage = mapCols/heightMult;
         let extraCols = Math.max( colsPerPage - this._width,0);
         let printablePages = Math.min(heightMult,(this._ramPages-page));
@@ -768,7 +768,7 @@ class DogGraphicDisplay {
     const map = font.stringToBitmap(text,style);
     const heightMult = font.pages;
     let mapCols= map.length;
-    if (Buffer.isBuffer(map)) {
+    if (map.length>0) {
         let colsPerPage = mapCols/heightMult;
         if (colsPerPage > this._width) {
           let steps = Math.ceil(colsPerPage/this._width);
