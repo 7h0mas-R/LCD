@@ -71,6 +71,12 @@ dogs102.initialize({pinCd: 9, pinRst: 7, speedHz: 800000, viewDirection: 0, volu
     //     console.log("--- ENDE ---")
     // }, 25000);
 })
+.then(_ => delay(2000))
+.then(_ => dogs102.clear())
+.then(_ => {
+    console.log('next write');  
+    handle = dogs102.step("tralala ",font_prop_16px, 1, 1, 1200);
+})
 // .then(_=> writeArray(["eins","zwei","drei","vier"],0))
 // .then(_=> writeArray(["zwei","drei","vier","fünf"],0))
 // .then(_=> writeArray(["drei","vier","fünf","sechs"],0))
