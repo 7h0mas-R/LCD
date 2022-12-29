@@ -31,6 +31,7 @@ Define commands for configuration of SPI interface in constructor
  * @typedef spiOptions
  * @property {number} [pinCd] GPIO pin of the CD line (MANDATORY)
  * @property {number} [pinRst] - GPIO pin of the RST line (MANDATORY)
+ * @property {number} [pinBacklight] - GPIO pin of the Backlight (OPTIONAL)
  * @property {number} [spiController=0] - the SPI controller, e.g. 1=SPI1, default: 0=SPI0
  * @property {number} [chipSelect=0] - the Chipselect line, e.g. 0=SPIx.0, default:0
 /* 
@@ -83,7 +84,7 @@ class DogGraphicDisplay {
   /** Base Constructor for the displays of types DOGL128,DOGM128, DOGM132,DOGS102  
    * @constructor
   */
-  constructor(spiOptions) {
+  constructor() {
   }
   
 /**
@@ -114,6 +115,10 @@ class DogGraphicDisplay {
         return;
       }
       self._gpioRst = new Gpio(spiOptions.pinRst, 'out');
+      //define GPIO pin for Backlight
+      if (spiOptions.pinBacklight !== undefined && spiOptions.pinBacklight !== null) {
+        self._gpioBacklight = new Gpio(spiOptions.pinBacklight, 'out');
+      }
       self._lcd = new Spi.open(spiOptions.spiController || 0, spiOptions.chipSelect || 0, {threeWire: true}, err => {  
         if (err) {reject("LCD openInterface: Failed to open SPI interface.")};
         self._interfaceOpened = true;
@@ -124,8 +129,9 @@ class DogGraphicDisplay {
 
   closeInterface() {
     return new Promise((resolve, reject) => {
-      this._gpioCd.unexport();
-      this._gpioRst.unexport();
+      if (this._gpioCd !== undefined) this._gpioCd.unexport();
+      if (this._gpioRst !== undefined) this._gpioRst.unexport();
+      if (this._gpioBacklight !== undefined) this._gpioBacklight.unexport();
       this._lcd.close(err => {
         if (err) {
           this._interfaceOpened = false;
@@ -145,8 +151,7 @@ class DogGraphicDisplay {
    * @param {number} f - frequency in Hertz (Hz)
    */
   set speedHz(f) {
-    f = f || this._maxSpeedHz;
-    if ((f > this._maxSpeedHz)||(f<1)) {f = this._maxSpeedHz};
+    if ((f===undefined || f > this._maxSpeedHz)||(f<1)) {f = this._maxSpeedHz};
     this._speedHz = f;
   };
   /** Get the speed setting of the SPI interface
@@ -250,21 +255,21 @@ class DogGraphicDisplay {
   initialize(options) {
       var self = this;
       return new Promise ((resolve, reject)=>{
-        self._speedHz = options.speedHz || self._maxSpeedHz;
+        self._speedHz = options.speedHz;
         if (self._interfaceOpened){
-          self.hwReset(10)
+          self.hwReset()
           .then(_ => {
           //Initialize the display
           //Build the init message depending on display type
-            self.initMessage = [
+            self._initMessage = [
               ...self.cmdStartLine(options.line || 0), //0x40
-              ...self.cmdViewDirection(options.viewDirection || self._viewDirection), //0xA0 0xC8
+              ...self.cmdViewDirection(options.viewDirection || 0), //0xA0 0xC8
               ...self.cmdAllPixelsOn(false), //0xA4
               ...self.cmdInverted(options.inverted || false), //0xA6
               ...self.cmdBiasRatio(options.biasRatio || 0), //0xA2
               ...self.cmdPowerControl(true, true, true), //0x2F
               ...self.cmdBiasVoltageDevider(7), //0x27
-              ...self.cmdVolume(options.volume || 16), //0x81 0x10
+              ...self.cmdVolume(options.volume), //0x81 0x10
             ];
             resolve();
           });
@@ -635,12 +640,12 @@ class DogS102 extends DogGraphicDisplay {
     return new Promise((resolve, reject) => {
         super.initialize(options)
         .then(_ =>{
-          self.initMessage.push(
+          self._initMessage.push(
           ...self.cmdAdvProgCtrl(true, false, false), //0xFA 0x90
           ...self.cmdSleep(false) //0xAF
           );
         })
-        .then(_ => self.transfer(0, self.initMessage))
+        .then(_ => self.transfer(0, self._initMessage))
         .then(_ => resolve())
         .catch(error => reject(error))
     })

@@ -32,7 +32,9 @@ Style determines, if the pixels should be off (set to 0) or on (set to 1)
 ### moveToColPage(column, page) - tested
 Moves the cursor to the specified `column` on the specified `page` (i.e. group of 8-pixel lines the LCD)
 ### moveBy(pages, columns){
-### set Contrast(value){
+### Contrast(value)
+Sets the contrast of the display to the argument. Value can be between 0 and 63. The new contrast setting will become valid immediately.
+
 ### clear()
 ### transfer(messageType, msg) - tested
 Transfers a Command or a message to the LCD by bit-banging on the SPI interface. Message type defines, whether a command or message data is sent.
