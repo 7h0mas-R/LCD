@@ -13,8 +13,9 @@
   "author": "7h0mas-R",
   "license": "ISC",
   "dependencies": {
-    "set-interval-async": "^2.0.3",
-    "font": "git+https://github.com/7h0mas-R/Font.git"
+    "font": "git+https://github.com/7h0mas-R/Font.git",
+    "js-logger": "^1.6.1",
+    "set-interval-async": "^2.0.3"
   },
   "optionalDependencies": {
     "onoff": "^6.0.3",

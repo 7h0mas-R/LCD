@@ -81,6 +81,8 @@ class DogGraphicDisplay {
     _animationInterval = 1000; //interval in ms
     _pageBuffers = [];
     _interfaceOpened = false; 
+    _minContrast = 0;
+    _maxContrast = 63;
   /** Base Constructor for the displays of types DOGL128,DOGM128, DOGM132,DOGS102  
    * @constructor
   */
@@ -170,10 +172,12 @@ class DogGraphicDisplay {
   *  @param {boolean} bool - 0: on, 1: sleep
   */
   cmdSleep(bool) {return [0xAE | (bool ? 0:1) ]};
+
   /** Returns the command for setting the startline
   *  @param {number} line - value between 0 and 8*RamPages
   */
   cmdStartLine(line) {return [0x40 | (line & 0x3F)]}; // bit 6 must be 1 and bits 0..5 contain the line
+
   /** Returns the command for setting the horizontal Orientation
   *  @param {number} hOrientation - 0: normal, 1: mirrored vertically
   */ 
@@ -181,10 +185,12 @@ class DogGraphicDisplay {
     this._shiftAddr = (hOrientation == 0?this._shiftAddrTopview:this._shiftAddrNormal)
     return [0xA0 | hOrientation] 
   }; //1: reverse (6 o'clock), 0: normal (12 o'clock)
+  
   /** Returns the command for setting the vertical Orientation
   *  @param {number} vOrientation - 0: normal, 8: mirrored horizontally
   */ 
   cmdVOrientation(vOrientation) {return [0xC0 | vOrientation]}; //0: normal (6 o'clock), 8: mirrored (12 o'clock)
+  
   /** Returns the combined command for setting the viewDirection 
   *  @param {number} viewDirection - 0: bottom (6 o'clock), >0: top (12 o'clock)
   */ 
@@ -200,6 +206,7 @@ class DogGraphicDisplay {
       return [...this.cmdHOrientation(0), ...this.cmdVOrientation(8)]
     }
   };
+
   cmdInverted(bool) {
     this._inverted = bool;
     return [0xA6 | (bool ? 1:0)]
@@ -224,6 +231,7 @@ class DogGraphicDisplay {
 
   /** Performs a hardware reset of the display by briefly pulling the reset line
    *  low. (Alternatively you can also do a software reset by using swReset command.)
+   *  hwReset is not required by the UC1701 chip, because swReset does the same thing
    * @param {number} duration - Duration of the reset pulse in Milliseconds (ms)
    */
   hwReset(duration) {
@@ -235,6 +243,26 @@ class DogGraphicDisplay {
           this._gpioRst.write(1).then(_ => {resolve()})
         }, duration);
       })
+      .catch(()=>{reject(err)})
+    });      
+  }
+
+  /** Pull the hardware reset pin low to put the driver IC into reset
+   */
+  hwResetOn(){
+    return new Promise((resolve, reject) => {
+      this._gpioRst.write(0)
+      .then(_ => {resolve()})
+      .catch(()=>{reject(err)})
+    });      
+  }
+
+  /** Pull the hardware reset pin high to take the driver IC out of reset
+   */
+  hwResetOff(){
+    return new Promise((resolve, reject) => {
+      this._gpioRst.write(0)
+      .then(_ => {resolve()})
       .catch(()=>{reject(err)})
     });      
   }
@@ -255,9 +283,9 @@ class DogGraphicDisplay {
   initialize(options) {
       var self = this;
       return new Promise ((resolve, reject)=>{
-        self._speedHz = options.speedHz;
+        if (options.speedHz !== undefined) self._speedHz = options.speedHz;
         if (self._interfaceOpened){
-          self.hwReset()
+          self.swReset()
           .then(_ => {
           //Initialize the display
           //Build the init message depending on display type
@@ -301,24 +329,21 @@ class DogGraphicDisplay {
         Functions that write data to the LCD display
    --+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+-- */
 
-  // /** Draws a bitmap at the current cursor position */
-  // drawImageP(image, pages, columns, style) {
-  //   let inv = (style & styleValues.inverse);
-  //   var tmp = 0x00;
-  //   while(j<pages && (this.getPositionPage() < this._properties.ramPages)) {
-  //     for (let i=0; i<columns && (this.getPositionColumn() < this._properties.width); i++) {
-  //       tmp = image[i][j];
-  //       if(!inv) {
-  //         this.transfer(messageType.data, tmp)
-  //       } else {
-  //         this.transfer(messageType.data, ~tmp);
-  //       }
-  //     }
-  //     if(++j != pages && this.getPositionColumn() != 0)
-  //       this.moveBy(1,-columns); //carriage return
-  //   }
-  
-  // }
+  /** Draws a bitmap at the current cursor position */
+  drawImageP(image, pages, columns, style) {
+    return new Promise(async (resolve, reject) => {
+      if (image.length == pages * columns) {
+        let currentCol = this.currentCol;
+        for (let pg = 0; pg < pages; pg++) {
+          await this.transfer(1,image.slice(pg*columns,pg*columns+columns));
+          await this.moveBy(1, -columns);
+        }
+        resolve();
+      } else {
+        reject('LCD drawImageP: image data does not contain pages * columns bytes')
+      }
+    })
+  }
 
   // /** Draws a bitmap at position x/y. Attention, in this function the row is measured in 
   //    pixels, not pages.
@@ -363,6 +388,7 @@ class DogGraphicDisplay {
     pages = Math.min (pages, this._ramPages-this.currentPage);
     columns = Math.min (columns, this.width - this.currentColumn);
     for (let i = 0; i < pages; i++) {
+    // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ ERROR in sync programming
       this.transfer(1, Array(pages*columns).fill((style ==1) ? 0xFF:0x00))
       this.cmdPageAddress(this.currentPage++)
     }
@@ -376,6 +402,7 @@ class DogGraphicDisplay {
    * @param {number} col - column of top-left corner of the area to clear
   */
   clearAreaXY(pages, columns, style, page, col){
+    // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ ERROR in sync programming
     this.moveToColPage(col, page)
     this.clearArea(pages, columns, style)
   }
@@ -410,15 +437,15 @@ class DogGraphicDisplay {
 
   //Set Contrast
   set Contrast(value){
-    value = Math.max(0,value);
-    value = Math.min(value, 63);
+    value = Math.max(this._minContrast,value);
+    value = Math.min(value, this._maxContrast);
     return this.transfer(0, (this.cmdVolume(value)))
   }
 
   clear() {
+    // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ unelegant in sync programming
     return new Promise(async (resolve) => {
       var self = this;
-      let promises = [];
       for (let i = 0; i < self._ramPages; i++) {
           await self.clearPage(i,0);
           if (i + 1 == self._ramPages) resolve() 
@@ -510,6 +537,7 @@ class DogGraphicDisplay {
 
   }
 
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@@ check if async interval really works as expected
   /** Write a line to the LCD, that is longer then the width. Let the text swing back and forth.
    * @param {string} text - text to output
    * @param {Font} font - Font Object to use
@@ -566,6 +594,7 @@ class DogGraphicDisplay {
 
   }
 
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@@ check if async interval really works as expected
   /** Write a line to the LCD, that is longer then the width. Divide the text into multiple parts
    * that are displayed one by one from left to ride repeatedly.
    * @param {string} text - text to output
@@ -617,7 +646,7 @@ class DogS102 extends DogGraphicDisplay {
   /** Constructor of the DogS102 Class
    * @constructor
    */
-  constructor () {
+  constructor (context) {
     super();
     this._width = 102;
     this._height= 64;

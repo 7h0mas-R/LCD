@@ -19,6 +19,10 @@ Extendable with different LCD models by inheriting from base-class and overwriti
 ### Constructor
 ### openInterface(spiOptions)
 ### closeInterface()
+### hwReset(duration)
+### hwResetOn()
+### hwResetOff()
+### swReset()
 ### initialize(options){
 ### clearColumns(count, style) - tested
 Clears `count` columns on the current page from the current cursor position. If count is larger than the amount of columns to the right, the number gets subtracted.
