@@ -13,6 +13,16 @@
             ],
             "program": "${workspaceFolder}/test/dog_test.js",
             "console": "integratedTerminal"
+        },
+        {
+            "type": "pwa-node",
+            "request": "launch",
+            "name": "Launch lcdTypes_test.js",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "program": "${workspaceFolder}/test/lcdTypes_test.js",
+            "console": "integratedTerminal"
         }
     ]
 }
