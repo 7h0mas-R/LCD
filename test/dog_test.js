@@ -27,7 +27,7 @@ const img30p = ([0,0,0,0,0,0,0,0,0,0,128,192,192,224,96,112,48,56,24,24,24,24,24
 function fullScreenMessage(text,waitFor) {
     dogs102.clear();
     dogs102.moveToColPage(0,2);
-    dogs102.writeText(text,font_prop_8px,0))
+    dogs102.writeText(text,font_prop_8px,0);
     // .then(_ => delay(waitFor))
     // .then(_ => dogs102.clear())
     // .then(_ => resolve())
