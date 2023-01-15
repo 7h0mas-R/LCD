@@ -75,9 +75,9 @@ class DogS102 {
 
         return [
             ...this._cmdStartLine(options.line || 0), //0x40
-            ...this.setViewDirection(options.viewDirection || 0), //0xA0 0xC8
+            ...this.getViewDirectionCommand(options.viewDirection || 0), //0xA0 0xC8
             ...this._cmdAllPixelsOn(false), //0xA4
-            ...this._cmdInverted(options.inverted || false), //0xA6
+            ...this.getInvertedCommand(options.inverted || false), //0xA6
             ...this._cmdBiasRatio(options.biasRatio || 0), //0xA2
             ...this._cmdPowerControl(true, true, true), //0x2F
             ...this._cmdBiasVoltageDevider(7), //0x27
@@ -96,8 +96,8 @@ class DogS102 {
         page = Math.max(0, page);
         page = Math.min(page, this.ramPages - 1)
         return [
-            ...this.cmdPageAddress(page),
-            ...this.cmdColumnAddress(column)]
+            ...this._cmdPageAddress(page),
+            ...this._cmdColumnAddress(column)]
     }
     
     /** Command to trigger a soft-reset
@@ -107,7 +107,7 @@ class DogS102 {
     /** Command to set the display to inverted
     * @param {boolean} bool - true for inverted display, default: false
     */
-    setInverted(bool) {return [0xA6 | (bool ? 1:0)]};
+    getInvertedCommand(bool) {return [0xA6 | (bool ? 1:0)]};
 
     /** Command to set the contrast of the display
     * @param {number} value - Contrast min: 0, max: 63, default: 10

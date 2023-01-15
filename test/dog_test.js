@@ -15,7 +15,7 @@ font_prop_8px.spacing = 0;
 let context = {};
 context.logger = require('js-logger');
 context.logger.useDefaults();
-const dogs102 = new lcd.LCD();
+const dogs102 = new lcd.LCD;
 const start = Date.now();
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -27,7 +27,7 @@ const img30p = ([0,0,0,0,0,0,0,0,0,0,128,192,192,224,96,112,48,56,24,24,24,24,24
 function fullScreenMessage(text,waitFor) {
     dogs102.clear();
     dogs102.moveToColPage(0,2);
-    dogs102.writeText(text,font_prop_8px,0);
+    return dogs102.writeText(text,font_prop_8px,0);
     // .then(_ => delay(waitFor))
     // .then(_ => dogs102.clear())
     // .then(_ => resolve())
@@ -78,14 +78,7 @@ dogs102.openInterface({pinCd: 25, pinRst: 20, speedHz: 20000})
 // .then(_ => dogs102.writeText("EADOG102", font_fixed_16px))
 // .then(_=>console.log(dogs102.cmdAdvProgCtrl(true, true, true)))
 // .then(_=>console.log('Chain ended:', Date.now() -start))
-.then(_ => {
-    console.log('dogs102 interfaceOpened: ' + dogs102._interfaceOpened)
-    return delay(5000); 
-})
 .then(_ => dogs102.closeInterface())
-.then(_ => {
-    console.log('dogs102 interfaceOpened: ' + dogs102._interfaceOpened)
-})
 .then(_ => dogs102.hwResetOn())
-.catch((error) => {console.log(error)})
+.catch((error) => {console.log('Error: ' + error)})
 .finally(_ => console.log('Bye Bye!'))

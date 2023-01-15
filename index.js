@@ -12,8 +12,8 @@
 
 const font = require('font');
 const fontStyles = require('font').fontStyle;
-const lcd = require('./lcdTypes').DogS102;
-
+const lcd = require('./lcdTypes');
+  
 
 
 const orientation = Object.freeze({
@@ -60,7 +60,7 @@ class LCD {
    * @constructor
   */
   constructor() {
-    this.#lcd = require('./lcdTypes').DogS102;
+    this.#lcd = new lcd.DogS102
   }
 
   /**
@@ -69,7 +69,7 @@ class LCD {
    * @param {import('./lcdTypes').initOptions} initOptions 
    */
   initialize(initOptions){
-    this.enqueue([{}])
+    return this.enqueue(0,this.#lcd.getInitCommand(initOptions))
   }
   
   /**
@@ -116,8 +116,8 @@ class LCD {
     return new Promise((resolve, reject) => {
       if (this.#gpioCd !== undefined) this.#gpioCd.unexport();
       if (this.#gpioRst !== undefined) this.#gpioRst.unexport();
-      if (this.#gpioBacklight !== undefined) this.#gpioBacklight.unexport();
-      this.#frequency = 0;
+      if (this.#gpioBacklight !== undefined && this.#gpioBacklight !== null) this.#gpioBacklight.unexport();
+      this.#speedHz = 0;
       this.#interface.close(err => {
         this.#interfaceOpened = false;
         if (err) {
@@ -167,7 +167,7 @@ class LCD {
     return new Promise((resolve, reject) => {
       this.#gpioRst.write(0)
       .then(_ => {resolve()})
-      .catch(()=>{reject(err)})
+      .catch((err)=>{reject(err)})
     });      
   }
 
@@ -177,7 +177,7 @@ class LCD {
     return new Promise((resolve, reject) => {
       this.#gpioRst.write(0)
       .then(_ => {resolve()})
-      .catch(()=>{reject(err)})
+      .catch((err)=>{reject(err)})
     });      
   }
 
@@ -195,13 +195,18 @@ class LCD {
    */
   _spiTransfer(message){
     return new Promise((resolve, reject) => {
-      self.#interface.transfer(message, err => {
-        if (err) {
-          resolve(err)
-        } else {
-          reject(new Error('_spiTransfer: Could not transfer message via SPI'))
-        }
-      })
+      if (this.#interfaceOpened) {
+        console.log(message)
+        this.#interface.transfer(message, err => {
+          if (err) {
+            reject(err)
+          } else {
+            resolve()
+          }
+        })
+      } else {
+        reject(new Error('_spiTransfer: interface is not open'))
+      }
     })
   }
 
@@ -216,11 +221,11 @@ class LCD {
       var message = [{
         sendBuffer: Buffer.from(msg), 
         byteLength: msg.length,
-        speedHz: self.#speedHz
+        speedHz: this.#speedHz
       }];        
-      self.#gpioCd.write(messageType)
-      .then(_ => self.spiTransfer(message))
-      // .then(_=> self._gpioCd.write(0))
+      this.#gpioCd.write(messageType)
+      .then(_ => this._spiTransfer(message))
+      // .then(_=> this._gpioCd.write(0))
       .then(_=> resolve())
       .catch(error => reject(error))
       .finally(_ => this._transfer())
@@ -237,8 +242,9 @@ class LCD {
    * @param {Array} msg - Array of Bytes containing command or data to be sent
    */
   enqueue(messageType,msg){
+    var self = this;
     return new Promise ((resolve, reject) => {
-      this.#messageQueue.push({resolve, reject, messageType,msg})          
+      self.#messageQueue.push({resolve, reject, messageType,msg})          
       this._transfer();
     })
   }
@@ -290,8 +296,8 @@ class LCD {
    * @param {number} page - page to clear: 0..this._ramPages - 1
   */
   clearPage(page, style){
-    let count = this._width;
-    this.enqueue(0,lcd.getMoveCommand(0,page));
+    let count = this.#lcd.width;
+    this.enqueue(0,this.#lcd.getMoveCommand(0,page));
     return this.enqueue(1,Array(count).fill((style ==1) ? 0xFF:0x00))
   }
 
@@ -328,8 +334,7 @@ class LCD {
    * @param {number} column - horizontal offset (columns) 0..width - 1
   */
   moveToColPage(page, column){
-    this.enqueue(0, lcd.getMoveCommand(page,column))
-    return this.moveToColPage((this.currentColumn + columns)%this._width, (this._currentPage + pages)%this._ramPages)
+    return this.enqueue(0, this.#lcd.getMoveCommand(page,column))
   }
 
   /** Moves the cursor by the given amount of pages/columns 
@@ -338,14 +343,15 @@ class LCD {
   */
   moveBy(pages, columns){
     // return this.moveToColPage((this.currentColumn + columns)%this._width, (this._currentPage + pages)%this._ramPages)
-    this.enqueue(0,this.lcd.getMoveCommand(this.#currentColumn + columns, this.#currentPage + pages))
+    return this.enqueue(0,this.#lcd.getMoveCommand(this.#currentColumn + columns, this.#currentPage + pages))
   }
 
   clear() {
     let self = this;
-    for (let i = 0; i < self._ramPages; i++) {
+    for (let i = 0; i < self.#lcd.ramPages; i++) {
         let p = self.clearPage(i,0);
-        if (i==self._ramPages -1) return p;
+        if (i==self.#lcd.ramPages -1) {
+          return p};
     } 
   }
 
@@ -530,7 +536,7 @@ class Screen {
 }
 
 //Define the objects that are exported by the module
-module.exports.TTYSimulator = TTYSimulator;
+// module.exports.TTYSimulator = TTYSimulator;
 module.exports.LCD = LCD;
 module.exports.orientation = orientation;
 module.exports.fontStyle = font.fontStyle;
