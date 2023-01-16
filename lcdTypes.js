@@ -127,21 +127,21 @@ class DogS102 {
     
 }
 
-// class TTYSimulator extends DogGraphicDisplay {
-//     // some physical parameters of the display
-//     get width () {return 102};
-//     get height() {return 64};
-//     get ramPages() {return 8};
-//     get pixelsPerByte() {return 8};
-//     get shiftAddrNormal() {return 0x00};
-//     get shiftAddrTopview() {return 0x1E};
-//     get doublePixel() {return 1}; 
-//     get maxSpeedHz() {return 0};
-//     get minContrast () {return 0};
-//     get maxContrast () {return 0};
+class TTYSimulator extends DogGraphicDisplay {
+    // some physical parameters of the display
+    get width () {return 102};
+    get height() {return 64};
+    get ramPages() {return 8};
+    get pixelsPerByte() {return 8};
+    get shiftAddrNormal() {return 0x00};
+    get shiftAddrTopview() {return 0x1E};
+    get doublePixel() {return 1}; 
+    get maxSpeedHz() {return 0};
+    get minContrast () {return 0};
+    get maxContrast () {return 0};
 
-//     constructor () {
-//     }
+    constructor () {
+    }
 //     /**
 //     * Initialize the display with the default settings 
 //     * @param {initOptions} options - options
@@ -169,6 +169,7 @@ class DogS102 {
 //             reject('TTY Simulator only works, if it is called from a TTY compatible terminal');
 //         }
 //     // }
+
 //  /** Moves the cursor to the given position on TTY terminal 
 //    * @param {number} page - target page 0..this._ramPages (since 4 lines are needed per ram page, this
 //    *                         needs to overwrite the original and allow an offset to be passed)
@@ -237,7 +238,7 @@ class DogS102 {
 //       }
 //     })
 //   }
-// }
+}
 
 module.exports.DogS102 = DogS102;
 module.exports.initOptions = this.initOptions;

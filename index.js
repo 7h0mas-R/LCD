@@ -69,7 +69,9 @@ class LCD {
    * @param {import('./lcdTypes').initOptions} initOptions 
    */
   initialize(initOptions){
-    return this.enqueue(0,this.#lcd.getInitCommand(initOptions))
+    let pack = new MessagePack;
+    pack.add(0,this.#lcd.getInitCommand(initOptions));
+    return this.enqueue(pack);
   }
   
   /**
@@ -216,13 +218,17 @@ class LCD {
     if (!this.#messageQueue.length){
       return;
     } else {
-      let {resolve,reject,messageType,msg} = this.#messageQueue.shift();
+      let {resolve,reject,messagePack} = this.#messageQueue.shift();
       // let {messageType,msg} = this.#messageQueue.shift();
-      var message = [{
-        sendBuffer: Buffer.from(msg), 
-        byteLength: msg.length,
-        speedHz: this.#speedHz
-      }];        
+      messagePack.forEach(msg => {
+        var message = [{
+          sendBuffer: Buffer.from(msg.msg), 
+          byteLength: msg.length,
+          speedHz: this.#speedHz
+        }];        
+      });
+
+      //##################### wird so nicht gehen. async for
       this.#gpioCd.write(messageType)
       .then(_ => this._spiTransfer(message))
       // .then(_=> this._gpioCd.write(0))
@@ -235,16 +241,17 @@ class LCD {
   /**
    /**
    * Enqueue messages for transfer to the display.
-     Messages in the queue will be send in FIFO manner, 
+     MessagePacks in the queue will be send in FIFO manner, 
      to prevent race conditions, if multiple async functions can accees the LCD.
+     Returns a promise that is resolved, when the full message pack is successfully 
+     transferred.
    * 
-   * @param {number} messageType - 0: command, 1: data
-   * @param {Array} msg - Array of Bytes containing command or data to be sent
+   * @param {MessagePack} messagePack - object of class MessagePack
    */
-  enqueue(messageType,msg){
+  enqueue(messagePack){
     var self = this;
     return new Promise ((resolve, reject) => {
-      self.#messageQueue.push({resolve, reject, messageType,msg})          
+      self.#messageQueue.push({resolve, reject, messagePack})          
       this._transfer();
     })
   }
@@ -519,8 +526,19 @@ class LCD {
   }
 }
 
+class MessagePack {
+  messages = [];
 
-
+  /**
+  * Add a message to the message pack
+  * 
+  * @param {number} messageType - 0: command, 1: data
+  * @param {Array} message - Array of Bytes containing command or data to be sent
+  */
+  add(messageType, message){
+    this.messages.push({msgType: messageType,msg: message})
+  }
+}
 class Range {
 /*
 The Range defines a subdivision of a screen, its content can be separaetely modified. 
