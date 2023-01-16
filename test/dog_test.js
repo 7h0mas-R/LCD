@@ -49,11 +49,13 @@ function contrastLoop (start, end) {
 
 context.logger.info('Starting demo');
 dogs102.openInterface({pinCd: 25, pinRst: 20, speedHz: 20000})
-.then(_=> dogs102.hwResetOn())
-.then(_ => dogs102.initialize({viewDirection: 0, volume: 10,line:0, inverted: false}))
-//.then(_ => fullScreenMessage('Display images',1500))
-// .then(_ => dogs102.moveToColPage(0,0))
-// // .then(_ => dogs102.transfer(1,new Uint8Array(dogs102._width).map(_=> Math.random()*255)))
+.then(_=> dogs102.hwResetOff())
+.then(_ => {
+    dogs102.initialize({viewDirection: 0, volume: 10,line:0, inverted: false})
+    //.then(_ => fullScreenMessage('Display images',1500))
+    dogs102.moveToColPage(0,0);
+    dogs102.enqueue(1,new Uint8Array(102).map(_=> Math.random()*255))
+})
 // .then(_ => dogs102.drawImageP(img,8,102,0))
 // .then(_ => delay(2000))
 // .then(_ => fullScreenMessage('Change contrast',1500))
@@ -78,6 +80,23 @@ dogs102.openInterface({pinCd: 25, pinRst: 20, speedHz: 20000})
 // .then(_ => dogs102.writeText("EADOG102", font_fixed_16px))
 // .then(_=>console.log(dogs102.cmdAdvProgCtrl(true, true, true)))
 // .then(_=>console.log('Chain ended:', Date.now() -start))
+.catch((error) => {console.log('Error: ' + error)})
+
+const readline = require('readline');
+
+function askQuestion(query) {
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+    });
+
+    return new Promise(resolve => rl.question(query, ans => {
+        rl.close();
+        resolve(ans);
+    }))
+}
+
+const ans = askQuestion('Press key to end...')
 .then(_ => dogs102.closeInterface())
 .then(_ => dogs102.hwResetOn())
 .catch((error) => {console.log('Error: ' + error)})

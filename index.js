@@ -226,8 +226,8 @@ class LCD {
           speedHz: this.#speedHz
         }];        
 
-        //##################### wird so nicht gehen. async for
-        this.#gpioCd.write(msg.messageType)
+        console.log('Set CD: ' + msg.msgType);
+        this.#gpioCd.write(msg.msgType)
         .then(_ => this._spiTransfer(message))
         // .then(_=> this._gpioCd.write(0))
         .catch(error => console.log(error))
