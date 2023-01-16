@@ -56,6 +56,7 @@ class LCD {
     #interfaceOpened = false;
     #messageQueue = [];
     #lcd;
+    #processing = false;
   /** Constructor  
    * @constructor
   */
@@ -69,9 +70,7 @@ class LCD {
    * @param {import('./lcdTypes').initOptions} initOptions 
    */
   initialize(initOptions){
-    let pack = new MessagePack;
-    pack.add(0,this.#lcd.getInitCommand(initOptions));
-    return this.enqueue(pack);
+    this.enqueue(0,this.#lcd.getInitCommand(initOptions));
   }
   
   /**
@@ -218,42 +217,38 @@ class LCD {
     if (!this.#messageQueue.length){
       return;
     } else {
-      let {resolve,reject,messagePack} = this.#messageQueue.shift();
-      // let {messageType,msg} = this.#messageQueue.shift();
-      messagePack.forEach(msg => {
+      if (!this.#processing) {
+        this.#processing = true;
+        let msg  = this.#messageQueue.shift();
         var message = [{
-          sendBuffer: Buffer.from(msg.msg), 
-          byteLength: msg.length,
+          sendBuffer: Buffer.from(msg.message), 
+          byteLength: msg.message.length,
           speedHz: this.#speedHz
         }];        
-      });
 
-      //##################### wird so nicht gehen. async for
-      this.#gpioCd.write(messageType)
-      .then(_ => this._spiTransfer(message))
-      // .then(_=> this._gpioCd.write(0))
-      .then(_=> resolve())
-      .catch(error => reject(error))
-      .finally(_ => this._transfer())
+        //##################### wird so nicht gehen. async for
+        this.#gpioCd.write(msg.messageType)
+        .then(_ => this._spiTransfer(message))
+        // .then(_=> this._gpioCd.write(0))
+        .catch(error => console.log(error))
+        .finally(_ => {
+          this.#processing = false;
+          this._transfer()
+        })
+      }
     }
   }
 
   /**
    /**
    * Enqueue messages for transfer to the display.
-     MessagePacks in the queue will be send in FIFO manner, 
-     to prevent race conditions, if multiple async functions can accees the LCD.
-     Returns a promise that is resolved, when the full message pack is successfully 
-     transferred.
-   * 
-   * @param {MessagePack} messagePack - object of class MessagePack
-   */
-  enqueue(messagePack){
-    var self = this;
-    return new Promise ((resolve, reject) => {
-      self.#messageQueue.push({resolve, reject, messagePack})          
+     Messages from the queue will be send in FIFO manner.
+  * @param {number} messageType - 0: command, 1: data
+  * @param {Array} message - Array of Bytes containing command or data to be sent
+  */
+  enqueue(msgType, message){
+      this.#messageQueue.push({msgType, message})          
       this._transfer();
-    })
   }
  
 
@@ -354,10 +349,9 @@ class LCD {
   }
 
   clear() {
-    let self = this;
-    for (let i = 0; i < self.#lcd.ramPages; i++) {
-        let p = self.clearPage(i,0);
-        if (i==self.#lcd.ramPages -1) {
+    for (let i = 0; i < this.#lcd.ramPages; i++) {
+        let p = this.clearPage(i,0);
+        if (i==this.#lcd.ramPages -1) {
           return p};
     } 
   }
@@ -529,12 +523,6 @@ class LCD {
 class MessagePack {
   messages = [];
 
-  /**
-  * Add a message to the message pack
-  * 
-  * @param {number} messageType - 0: command, 1: data
-  * @param {Array} message - Array of Bytes containing command or data to be sent
-  */
   add(messageType, message){
     this.messages.push({msgType: messageType,msg: message})
   }

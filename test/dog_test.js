@@ -49,9 +49,9 @@ function contrastLoop (start, end) {
 
 context.logger.info('Starting demo');
 dogs102.openInterface({pinCd: 25, pinRst: 20, speedHz: 20000})
-.then(_=> dogs102.hwResetOff())
+.then(_=> dogs102.hwResetOn())
 .then(_ => dogs102.initialize({viewDirection: 0, volume: 10,line:0, inverted: false}))
-.then(_ => fullScreenMessage('Display images',1500))
+//.then(_ => fullScreenMessage('Display images',1500))
 // .then(_ => dogs102.moveToColPage(0,0))
 // // .then(_ => dogs102.transfer(1,new Uint8Array(dogs102._width).map(_=> Math.random()*255)))
 // .then(_ => dogs102.drawImageP(img,8,102,0))
