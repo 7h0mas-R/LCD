@@ -48,7 +48,7 @@ class DogS102 {
        --+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--*/ 
     _cmdSleep(bool) {return [0xAE | (bool ? 0:1) ]}; //
     _cmdStartLine(line) {return [0x40 | (line & 0x3F)]}; // bit 6 must be 1 and bits 0..5 contain the line
-    _cmdHOrientation(hOrientation) {this._shiftAddr = (hOrientation == 0?this._shiftAddrNormal:this._shiftAddrTopview);return [0xA0 | hOrientation]}; //1: reverse (6 o'clock), 0: normal (12 o'clock)
+    _cmdHOrientation(hOrientation) {return [0xA0 | hOrientation]}; //1: reverse (6 o'clock), 0: normal (12 o'clock)
     _cmdVOrientation(vOrientation) {return [0xC0 | vOrientation<<3]}; //0: normal (6 o'clock), 8: mirrored (12 o'clock)
     _cmdAllPixelsOn(bool) {return [0xA4 | (bool ? 1:0)]};
     _cmdBiasRatio(br) {return [0xA2 | (br)]};
@@ -63,7 +63,7 @@ class DogS102 {
     *  @param {number} viewDirection - 0: default, 1: flip horizontal, 2: flip vertical, 3: rotate 180 deg 
     */ 
     getViewDirectionCommand(viewDirection) {
-        return [...this._cmdHOrientation(viewDirection & 1),...this._cmdVOrientation(viewDirection & 2)];
+        return [...this._cmdHOrientation(viewDirection & 1),...this._cmdVOrientation(!((viewDirection & 2)>>1))];
     };
 
     /**
@@ -115,7 +115,7 @@ class DogS102 {
     getContrastCommand(value=10){
         value = Math.max(this.minContrast,value);
         value = Math.min(value, this.maxContrast);
-        return this.cmdVolume(value)
+        return this._cmdVolume(value)
     };
 
     /** Command to set horizontal and vertical wrapping of the display.

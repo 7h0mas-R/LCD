@@ -144,6 +144,10 @@ class LCD {
    */
   get speedHz() {return this.#speedHz};
 
+  /** Set the contrast of the display
+   */
+  set contrast(c) {this.enqueue(0,this.#lcd.getContrastCommand(c))};
+
   /** Performs a hardware reset of the display by briefly pulling the reset line
    *  low. (Alternatively you can also do a software reset by using swReset command.)
    *  hwReset is not required by the UC1701 chip, because swReset does the same thing
@@ -176,7 +180,7 @@ class LCD {
    */
   hwResetOff(){
     return new Promise((resolve, reject) => {
-      this.#gpioRst.write(0)
+      this.#gpioRst.write(1)
       .then(_ => {resolve()})
       .catch((err)=>{reject(err)})
     });      
@@ -197,7 +201,7 @@ class LCD {
   _spiTransfer(message){
     return new Promise((resolve, reject) => {
       if (this.#interfaceOpened) {
-        console.log(message)
+        // console.log(message)
         this.#interface.transfer(message, err => {
           if (err) {
             reject(err)
@@ -220,13 +224,14 @@ class LCD {
       if (!this.#processing) {
         this.#processing = true;
         let msg  = this.#messageQueue.shift();
+        
         var message = [{
           sendBuffer: Buffer.from(msg.message), 
           byteLength: msg.message.length,
           speedHz: this.#speedHz
         }];        
 
-        console.log('Set CD: ' + msg.msgType);
+        // console.log('Set CD: ' + msg.msgType);
         this.#gpioCd.write(msg.msgType)
         .then(_ => this._spiTransfer(message))
         // .then(_=> this._gpioCd.write(0))
@@ -259,18 +264,13 @@ class LCD {
 
   /** Draws a bitmap at the current cursor position */
   drawImageP(image, pages, columns, style) {
-    return new Promise(async (resolve, reject) => {
-      if (image.length == pages * columns) {
-        let currentCol = this.currentCol;
-        for (let pg = 0; pg < pages; pg++) {
-          await this.transfer(1,image.slice(pg*columns,pg*columns+columns));
-          await this.moveBy(1, -columns);
-        }
-        resolve();
-      } else {
-        reject('LCD drawImageP: image data does not contain pages * columns bytes')
+    if (image.length == pages * columns) {
+      let currentCol = this.currentCol;
+      for (let pg = 0; pg < pages; pg++) {
+        this.enqueue(1,image.slice(pg*columns,pg*columns+columns));
+        this.moveBy(1, -columns);
       }
-    })
+    }
   }
 
   // /** Draws a bitmap at position x/y. Attention, in this function the row is measured in 
@@ -300,7 +300,7 @@ class LCD {
   clearPage(page, style){
     let count = this.#lcd.width;
     this.enqueue(0,this.#lcd.getMoveCommand(0,page));
-    return this.enqueue(1,Array(count).fill((style ==1) ? 0xFF:0x00))
+    this.enqueue(1,Array(count).fill((style ==1) ? 0xFF:0x00))
   }
 
   /** clears area of columns height and pages width at current cursor position 
@@ -336,7 +336,9 @@ class LCD {
    * @param {number} column - horizontal offset (columns) 0..width - 1
   */
   moveToColPage(page, column){
-    return this.enqueue(0, this.#lcd.getMoveCommand(page,column))
+    this.#currentColumn = column;
+    this.#currentPage = page;
+    this.enqueue(0, this.#lcd.getMoveCommand(page,column))
   }
 
   /** Moves the cursor by the given amount of pages/columns 
@@ -345,14 +347,14 @@ class LCD {
   */
   moveBy(pages, columns){
     // return this.moveToColPage((this.currentColumn + columns)%this._width, (this._currentPage + pages)%this._ramPages)
-    return this.enqueue(0,this.#lcd.getMoveCommand(this.#currentColumn + columns, this.#currentPage + pages))
+    this.#currentColumn += columns;
+    this.#currentPage += pages;
+    this.enqueue(0,this.#lcd.getMoveCommand(this.#currentColumn, this.#currentPage))
   }
 
   clear() {
     for (let i = 0; i < this.#lcd.ramPages; i++) {
-        let p = this.clearPage(i,0);
-        if (i==this.#lcd.ramPages -1) {
-          return p};
+      this.clearPage(i,0);
     } 
   }
 
@@ -361,20 +363,19 @@ class LCD {
    * @param {Font} font - Font Object to use
    * @param {number} style - one of the style values  
    */
-  async writeText(text, font, style) {
+  writeText(text, font, style) {
     let map = font.stringToBitmap(text,style)
 
     let heightMult = font.pages;
     if (Buffer.isBuffer(map)) {
         let colsPerPage = map.length/heightMult;
-        let printableCols = Math.min( colsPerPage,(this._width - this.currentColumn));
-        let printablePages = Math.min(heightMult,(this._ramPages-this.currentPage));
+        let printableCols = Math.min( colsPerPage,(this.#lcd.width - this.#currentColumn));
+        let printablePages = Math.min(heightMult,(this.#lcd.ramPages-this.#currentPage));
         let subMap = new Uint8Array(printableCols);
         for (let k = 0; k < printablePages; k++) {  //row index
           for (let i = 0; i < printableCols; i++) {
             subMap[i]= map[i*heightMult+k];
           }
-          // await this.transfer(1, subMap);
           this.enqueue(1,subMap)
           if (printablePages > k+1) {
             // await this.moveBy(1,0)
@@ -396,9 +397,9 @@ class LCD {
     let heightMult = font.pages;
     if (Buffer.isBuffer(map)) {
         let colsPerPage = map.length/heightMult;
-        let printableCols = Math.min( colsPerPage,(this._width - this.currentColumn));
-        let printablePages = Math.min(heightMult,(this._ramPages-this.currentPage));
-        let subMap = new Uint8Array(this._width);
+        let printableCols = Math.min( colsPerPage,(this.#lcd.width - this.#currentColumn));
+        let printablePages = Math.min(heightMult,(this.#lcd.ramPages-this.#currentPage));
+        let subMap = new Uint8Array(this.#lcd.width);
         for (let k = 0; k < printablePages; k++) {  //row index
           for (let i = 0; i < printableCols; i++) {
             subMap[i]= map[i*heightMult+k];
