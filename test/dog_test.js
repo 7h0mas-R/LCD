@@ -60,12 +60,12 @@ userInfo('Starting demo. Press key to continue with display initialization and d
     //.then(_ => fullScreenMessage('Display images',1500))
     dogs102.moveToColPage(0,0);
     // dogs102.enqueue(1,new Uint8Array(102).map(_=> Math.random()*255))
-    dogs102.drawImageP(unda,8,102,0);
+    dogs102.drawImageP(unda,102,8,0);
 })
-.then(_ => userInfo('Next is a demonstration of Contrast settings, press key to start.'))
-.then(_ => fullScreenMessage('Change contrast',1500))
-.then(_ => delay(500))
-.then(_ => contrastLoop(0,20))
+// .then(_ => userInfo('Next is a demonstration of Contrast settings, press key to start.'))
+// .then(_ => fullScreenMessage('Change contrast',1500))
+// .then(_ => delay(500))
+// .then(_ => contrastLoop(0,20))
 .then(_ => userInfo('You can use different fonts, as you will see next.'))
 .then(_ => {
     dogs102.clear();
@@ -79,7 +79,7 @@ userInfo('Starting demo. Press key to continue with display initialization and d
     dogs102.moveToColPage(0,3);
     dogs102.writeText("8px prop",font_prop_8px,0);
     dogs102.moveToColPage(0,6);
-    // dogs102.writeText("16px fixed",font_fixed_16px,0);
+    dogs102.writeText("16px fixed",font_fixed_16px,0);
 })
 // .then(_ => dogs102.initialize({speedHz: 800000, viewDirection: 1, volume: 20,line:0}))
 // .then(_ => dogs102.transfer(0,dogs102.cmdAdvProgCtrl(false,true,true)))

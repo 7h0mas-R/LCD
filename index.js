@@ -224,7 +224,7 @@ class LCD {
       if (!this.#processing) {
         this.#processing = true;
         let msg  = this.#messageQueue.shift();
-        
+        // if (msg.message == undefined) msg.message = [0,0,0,0,0,0,0,0];
         var message = [{
           sendBuffer: Buffer.from(msg.message), 
           byteLength: msg.message.length,
@@ -263,12 +263,12 @@ class LCD {
    --+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+-- */
 
   /** Draws a bitmap at the current cursor position */
-  drawImageP(image, pages, columns, style) {
+  drawImageP(image, columns, pages, style) {
     if (image.length == pages * columns) {
-      let currentCol = this.currentCol;
+      let currentCol =this.#currentColumn;
       for (let pg = 0; pg < pages; pg++) {
         this.enqueue(1,image.slice(pg*columns,pg*columns+columns));
-        this.moveBy(1, -columns);
+        this.moveByColsPages(-columns,1);
       }
     }
   }
@@ -335,17 +335,17 @@ class LCD {
    * @param {number} page - vertical position (page) 0..ramPages - 1
    * @param {number} column - horizontal offset (columns) 0..width - 1
   */
-  moveToColPage(page, column){
+  moveToColPage(column, page){
     this.#currentColumn = column;
     this.#currentPage = page;
-    this.enqueue(0, this.#lcd.getMoveCommand(page,column))
+    this.enqueue(0, this.#lcd.getMoveCommand(column,page))
   }
 
   /** Moves the cursor by the given amount of pages/columns 
    * @param {number} pages - vertical offset (pages)
    * @param {number} columns - horizontal offset (columns)
   */
-  moveBy(pages, columns){
+  moveByColsPages(columns, pages){
     // return this.moveToColPage((this.currentColumn + columns)%this._width, (this._currentPage + pages)%this._ramPages)
     this.#currentColumn += columns;
     this.#currentPage += pages;
@@ -376,10 +376,9 @@ class LCD {
           for (let i = 0; i < printableCols; i++) {
             subMap[i]= map[i*heightMult+k];
           }
-          this.enqueue(1,subMap)
+          this.enqueue(1,subMap);
           if (printablePages > k+1) {
-            // await this.moveBy(1,0)
-            this.enqueue(0,this.moveBy(1,0))
+            this.moveByColsPages(0,1);
           };
         }
     }
@@ -409,7 +408,7 @@ class LCD {
           }
           await this.transfer(1, subMap);
           if (printablePages > k+1) {
-            await this.moveBy(1,0)
+            await this.moveByColsPages(0,1)
           };
         }
     }
@@ -451,7 +450,7 @@ class LCD {
                 };
                 await this.transfer(1, subMap);
                 if (printablePages > k+1) {
-                    await this.moveBy(1,0);
+                    await this.moveByColsPages(0,1);
                 };
               }          
               startCol = startCol + direction * stepSizePix;
@@ -504,7 +503,7 @@ class LCD {
               };
               await this.transfer(1, subMap);
               if (printablePages > k+1) {
-                  await this.moveBy(1,0);
+                  await this.moveByColsPages(0,1);
               };
             }          
             startCol = startCol + this._width;
