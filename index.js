@@ -367,14 +367,14 @@ class LCD {
     let map = font.stringToBitmap(text,style)
 
     let heightMult = font.pages;
-    if (Buffer.isBuffer(map)) {
+    if (Array.isArray(map)) {
         let colsPerPage = map.length/heightMult;
         let printableCols = Math.min( colsPerPage,(this.#lcd.width - this.#currentColumn));
         let printablePages = Math.min(heightMult,(this.#lcd.ramPages-this.#currentPage));
-        let subMap = new Uint8Array(printableCols);
         for (let k = 0; k < printablePages; k++) {  //row index
+          let subMap = [];
           for (let i = 0; i < printableCols; i++) {
-            subMap[i]= map[i*heightMult+k];
+            subMap.push(map[i*heightMult+k]);
           }
           this.enqueue(1,subMap);
           if (printablePages > k+1) {
@@ -394,7 +394,7 @@ class LCD {
     let map = font.stringToBitmap(text,style)
 
     let heightMult = font.pages;
-    if (Buffer.isBuffer(map)) {
+    if (Array.isArray(map)) {
         let colsPerPage = map.length/heightMult;
         let printableCols = Math.min( colsPerPage,(this.#lcd.width - this.#currentColumn));
         let printablePages = Math.min(heightMult,(this.#lcd.ramPages-this.#currentPage));
@@ -427,7 +427,7 @@ class LCD {
     const map = font.stringToBitmap(text,style)
     const heightMult = font.pages;
     const mapCols= map.length;
-    if (Buffer.isBuffer(map)) {
+    if (Array.isArray(map)) {
         let colsPerPage = mapCols/heightMult;
         let extraCols = Math.max( colsPerPage - this._width,0);
         let printablePages = Math.min(heightMult,(this._ramPages-page));
@@ -485,7 +485,7 @@ class LCD {
     const map = font.stringToBitmap(text,style);
     const heightMult = font.pages;
     let mapCols= map.length;
-    if (Buffer.isBuffer(map)) {
+    if (Array.isArray(map)) {
         let colsPerPage = mapCols/heightMult;
         if (colsPerPage > this._width) {
           let steps = Math.ceil(colsPerPage/this._width);

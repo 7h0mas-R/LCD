@@ -13,7 +13,7 @@
   "author": "7h0mas-R",
   "license": "ISC",
   "dependencies": {
-    "font": "git+https://github.com/7h0mas-R/Font.git",
+    "font": "file:../Font",
     "js-logger": "^1.6.1",
     "set-interval-async": "^2.0.3"
   },
