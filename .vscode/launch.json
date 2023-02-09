@@ -17,6 +17,26 @@
         {
             "type": "pwa-node",
             "request": "launch",
+            "name": "Launch new_dog_test.js",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "program": "${workspaceFolder}/test/new_dog_test.js",
+            "console": "integratedTerminal"
+        },
+        {
+            "type": "pwa-node",
+            "request": "launch",
+            "name": "Launch lcdTypes.js",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "program": "${workspaceFolder}/lcdTypes_new.js",
+            "console": "integratedTerminal"
+        },
+        {
+            "type": "pwa-node",
+            "request": "launch",
             "name": "Launch lcdTypes_test.js",
             "skipFiles": [
                 "<node_internals>/**"
