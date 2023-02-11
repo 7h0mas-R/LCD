@@ -22,7 +22,7 @@
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}/test/new_dog_test.js",
-            "console": "integratedTerminal"
+            "console": "externalTerminal"
         },
         {
             "type": "pwa-node",

@@ -36,8 +36,6 @@ Define commands for configuration of SPI interface in constructor
  * @property {number} [speedHz=20000] - the clock frequency of the SPI interface, default: 20kHz
 */ 
 
-
-
 class LCD {
     #currentColumn = 0;
     #currentPage = 0;
