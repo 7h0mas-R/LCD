@@ -56,8 +56,7 @@ class DogS102 {
     get _height() {return 64};
     get _ramPages() {return 8};
     get _pixelsPerByte() {return 8};
-    get _shiftAddrNormal() {return 0x00};
-    get _shiftAddrTopview() {return 0x1E};
+    get _addrOffset() {return 0x1E};
     get _doublePixel() {return 1}; 
     get _maxSpeedHz() {return 33000000};
     get _minContrast () {return 0};
@@ -71,11 +70,14 @@ class DogS102 {
     constructor(options){
         this._columnWrapOn = false;
         this._pageWrapOn = false;
+        this._interfaceOpened = false;
         this._sleeping = false;
         this._currentColumn = 0;
         this._currentPage = 0;
         this._msgQueue = [];
         this._processing = false;
+        this._offset = 0;
+        this._shiftAddr = 0;
         switch (options.interfaceType) {
             case "SPI":
                 this.biasVoltageDevider = 7;
@@ -87,7 +89,14 @@ class DogS102 {
                 break;
         
             case "TTY":
-                this.interface = new TTYSimulator({})
+                const dogSim = require('./dogSim');
+                // this.interface = new dogSim.Simulator;
+                this.interface = dogSim.open(options, (error, message) => {
+                    if (!error) {
+                        this._interfaceOpened = true;
+                        this._processMsg();
+                    }
+                });
             default:
                 break;
         }
@@ -164,7 +173,7 @@ class DogS102 {
     /** Send data from the queue to the display
     */
     _processMsg() {
-        if (!this._msgQueue.length){
+        if (!this._msgQueue.length || !this._interfaceOpened){
             return;
         } else {
             if (!this._processing) {
@@ -178,7 +187,7 @@ class DogS102 {
                 };        
 
                 // console.log('Set CD: ' + msg.msgType);
-                if (this.interface instanceof TTYSimulator) {
+                if (this.interface.constructor.name == 'Simulator' ) {
                     this.interface.commandMode = !msg.msgType;
                     this.interface.transfer(message, (err, msg) => {this._endProcessing(err,msg)});
                 } else if (this.interface instanceof SpiDevice){
@@ -232,8 +241,9 @@ class DogS102 {
         let lines = this._ramPages;
         for (let i = 0; i < lines; i++) {
             this.moveToColPage(0,i);
-            this.sendData(new Array(this._width).fill(255))
+            this.sendData(new Array(this._width).fill(0))
         }
+        this.moveToColPage(0,0);
         this._processMsg();
     }
 
@@ -258,257 +268,6 @@ class DogS102 {
     
 }
 
-/* 
-Options for initialization of display settings
-*/
- /**
- * @typedef TTYOptions
- * @property {boolean} [offset = 30] - an invisible offset (like e.g. in the DOGS102) 
- * @property {number} [frequency = 0] - simulates a slow display by delaying the refreshing (similar to SPI-speed), default=-1 meaning no delay
-*/
-
-class TTYSimulator {
-    // simulates an LCD display by using a TTY terminal
-
-    /**
-    * Initialize the display with the default settings 
-    * @param {TTYOptions} options - options
-    */
-    constructor (options={}) {
-        if (process.stdout.isTTY) {
-            this._TTY = process.stdout;
-            this._width = this._TTY.columns;
-            this._currentColumn = 0;
-            this._currentPage = 0;
-            this._linesPerPage = 4;
-            this._shiftAddr = 0;
-            this._maxContrast = 63;
-            this._ramPages = Math.floor(this._TTY.rows / 4);
-            this._offset = options.offset || 30;
-            this._height = this._ramPages * this._linesPerPage;
-            this._cmdBuffer = [];
-            this._frequency = options.frequency || 0;
-            if (this._TTY.columns < this._width || this._TTY.rows < this._height) {
-                console.log('The terminal is too small to display the content.')
-            }
-    //        this._TTY.setDefaultEncoding('ascii');
-            if (this._TTY.write("\x1b]11;#FFFF99\x07",err => {
-                    if (err) reject("Error writing text")
-                })){
-            } else {
-                this._TTY.once("drain")
-            }
-        }
-    }
-
-    set commandMode(value) {
-        if (value) {
-            this._commandMode = true;
-        } else {
-            this._commandMode = false;
-        }
-    }
-
-    set sleep (value){
-        if (value) {
-            this._sleeping = true;
-            //clear tty
-        } else {
-            this._sleeping = false;
-        }
-    }
-    
-    set startline (value){
-        value = Math.max(0,value);
-        value = Math.min(value, this._height)
-        this._startLine = value;
-    }
-    
-    set hOrientation (value){
-        this._hOrientation = value;
-    }
-    
-    set vOrientation (value){
-        this._vOrientation = value;
-    }
-
-    set colAddress(value){
-        this._currentColumn = value;
-        this._TTY.cursorTo(this._currentColumn, this._currentPage*this._linesPerPage)
-    }
-
-    set pageAddress(value){
-        this._currentPage = value;
-        this._TTY.cursorTo(this._currentColumn,this._currentPage*this._linesPerPage)
-    }
-
-    set volume(value){
-        this.currentPage = value;
-        value = Math.max(value, 0);
-        value = Math.min(value, this._maxContrast);
-        value = (255/this._maxContrast) * value;
-        this._TTY.write("\x1b]10;#" + value.toString(16).repeat(3) + "\x07"); //set foreground color in rgb
-    }
-
-    /**
-    * Transfer Data to the display, depends on setting of commandMode 
-    * @param {Buffer} message - the  message data
-    */
-    transfer(message, cb){
-        switch (this._commandMode) {
-            case true:
-                this._twoByteProcessing = "";
-                this._mem = -1;
-                for (let i = 0; i < message.byteLength; i++) {
-                    switch (this._twoByteProcessing) {
-                        case "colAddress":
-                            this._twoByteProcessing = "";
-                            this._mem = -1;                     
-                            this.colAddress = (message.sendBuffer[i] & 0x0F) + (this._mem << 4) - this._shiftAddr;
-                            return this._TTY.cursorTo(this._currentColumn,this._currentPage*this._linesPerPage,cb)
-                            break;
-                        case "volume":
-                            this.volume = (message.sendBuffer[i] & 0x3F);  
-                            this._twoByteProcessing = "";
-                            this._mem = -1;                       
-                            break;                    
-                        case "advProgCtrl":
-                            this.colWrapping = (message.sendBuffer[i] & 2);  
-                            this.pageWrapping = (message.sendBuffer[i] & 1);  
-                            this._twoByteProcessing = "";
-                            this._mem = -1;                       
-                            break;                    
-                        default:
-                            // ATTENTION: When adding masks, make sure to sort in descending order
-                            if ((message.sendBuffer[i] & 0xFA) == 0xFA) {this._twoByteProcessing = "advProgCtrl"}
-                            else if ((message.sendBuffer[i] & 0xC0) == 0xC0) {this.vOrientation = (message.sendBuffer[i] & 8)>>3}
-                            else if ((message.sendBuffer[i] & 0xB0) == 0xB0) {
-                                this.pageAddress = message.sendBuffer[i] & 0x0F;
-                                return this._TTY.cursorTo(this._currentColumn,this._currentPage*this._linesPerPage,cb)
-                            }
-                            else if ((message.sendBuffer[i] & 0xAE) == 0xAE) {this.sleep = message.sendBuffer[i] & 1}
-                            else if ((message.sendBuffer[i] & 0xA6) == 0xA6) {this.inverted = message.sendBuffer[i] & 1}
-                            else if ((message.sendBuffer[i] & 0xA4) == 0xA4) {this.allPixelsOn = message.sendBuffer[i] & 1}
-                            else if ((message.sendBuffer[i] & 0xA0) == 0xA0) {this.hOrientation = message.sendBuffer[i] & 1}         
-                            else if ((message.sendBuffer[i] & 0x81) == 0x81) {this._twoByteProcessing = "volume"}
-                            else if ((message.sendBuffer[i] & 0x40) == 0x40) {this.startline = message.sendBuffer[i] & 0x3F}
-                            else if ((message.sendBuffer[i] & 0x10) == 0x10) {this._twoByteProcessing = "colAddress"; this._mem = message.sendBuffer[i] & 0x0F}
-                            break;
-                    }
-                }
-                break;
-        
-            default:
-                let msgWidth = message.byteLength;
-                let output = '';
-                if (msgWidth > 0) {
-                    let max = Math.min(msgWidth,this._width);
-                    for (let i = 0; i < this._linesPerPage; i++) {  //Bit index (pixel)
-                        // this.moveToColPage(this._currentColumn, this._currentPage, i)
-                        for (let j = 0; j < max; j++) {  //column index
-                            switch ((message.sendBuffer[j] >> i*2) & 0x03) {
-                            case 0:
-                                output+='\u0020';
-                                break;
-                            case 1:
-                                output+='\u2580';
-                                break;
-                            case 2:
-                                output+='\u2584';
-                                break;
-                            case 3:
-                                output+='\u2588';
-                                break;
-                            default:
-                                break;
-                            }
-                        }
-                        output.padEnd(this._width,' ');
-                        this._TTY.write(output,(err)=>{if (err) console.log(err)});
-                        output='';
-                    }
-                }
-
-                break;
-        }
-        if (this._frequency > 0)
-            setTimeout(() => cb(null, null),(Math.floor(message.byteLength/this._frequency*1000)))
-        else {
-            cb(null,null)
-        }
-        return this;
-    }
-
-
-//  /** Moves the cursor to the given position on TTY terminal 
-//    * @param {number} page - target page 0..this._ramPages (since 4 lines are needed per ram page, this
-//    *                         needs to overwrite the original and allow an offset to be passed)
-//    * @param {number} column - target colum: 0..width - 1
-//   */
-//   moveToColPage(column, page, offset){
-//   var self = this;
-//   offset = offset || 0;
-//   offset = Math.min(offset,3);
-//   self._currentColumn=column;
-//   self._currentPage = page;
-//   return new Promise(function(resolve){
-//       if (self._TTY.cursorTo(column,page*self._linesPerPage + offset,()=>{})) {
-//           resolve()
-//       } else {
-//           self._TTY.once("drain", resolve())
-//       }
-//   })
-//   }
-
-//   /** Send data to the display
-//    * @param {number} messageType - cmd: 0, data:1
-//    * @param {Array} msg - Array with byte data values (0..255)
-//    */
-//   transfer(messageType, msg) {
-//     let self = this;
-//     return new Promise(async(resolve, reject) => {
-//       if (messageType == 1) {   //bitmap data
-//         let msgWidth = msg.length;
-//         let output = '';
-//         if (msgWidth > 0) {
-//             let max = Math.min(msgWidth,this._width);
-//               for (let i = 0; i < 4; i++) {  //Bit index (pixel)
-//                   await this.moveToColPage(this._currentColumn, this._currentPage, i)
-//                   for (let j = 0; j < max; j++) {  //column index
-//                     switch (msg[j] >> i*2 & 0x03) {
-//                       case 0:
-//                         output+='\u0020';
-//                         break;
-//                       case 1:
-//                         output+='\u2580';
-//                         break;
-//                       case 2:
-//                         output+='\u2584';
-//                         break;
-//                       case 3:
-//                         output+='\u2588';
-//                         break;
-//                       default:
-//                         break;
-//                     }
-//                   }
-//                   output.padEnd(this._width,' ')
-//                   if (self._TTY.write(output,err => {
-//                           if (err) reject("Error writing text")
-//                       })){
-//                   } else {
-//                       self._TTY.once("drain")
-//                   }
-//                   output='';
-//               }
-//               resolve()
-//         }
-//       } else {                  //command
-//         resolve()
-//       }
-//     })
-//   }
-}
 
 module.exports.DogS102 = DogS102;
 module.exports.initOptions = this.initOptions;
