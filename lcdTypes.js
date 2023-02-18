@@ -250,7 +250,7 @@ class DogS102 {
     * @param {number} value - Contrast min: 0, max: 63, default: 10
     */
     setContrast(value=10){
-        value = Math.max(this.minContrast,value);
+        value = Math.max(this._minContrast,value);
         value = Math.min(value, this._maxContrast);
         this.contrast = value;
         this._enqueue(0, this._cmdVolume(value));

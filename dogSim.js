@@ -105,11 +105,11 @@ class Simulator {
     }
 
     set volume(value){
-        this.currentPage = value;
+        //simulates a contrast setting
         value = Math.max(value, 0);
         value = Math.min(value, this._maxContrast);
-        value = (255/this._maxContrast) * value;
-        this._TTY.write("\x1b]10;#" + value.toString(16).repeat(3) + "\x07"); //set foreground color in rgb
+        value = Math.floor(250/this._maxContrast * (this._maxContrast - value));
+        this._TTY.write("\x1b]10;#" + value.toString(16).padStart(2,0).repeat(3) + "\x07"); //set foreground color in rgb
     }
 
     /**
@@ -340,6 +340,7 @@ class Simulator {
 const open = function(options, cb){
     var sim = new Simulator(options);
     write("\x1b]11;#FFFF99\x07")
+    .then(_=>write("\x1b]10;#000000\x07")) //set foreground color in rgb
     .then(_=>cursorTo(0,0))
     .then(_=>clearScreenDown())
     .then(_=>{
