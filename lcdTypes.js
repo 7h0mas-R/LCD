@@ -133,7 +133,7 @@ class DogS102 {
         this.biasRatio = options.biasRatio || 0;
         this.contrast = options.contrast;
 
-        return [
+        this._enqueue(0,[
             ...this._cmdStartLine(this.startLine), //0x40
             ...this.setViewDirection(this.viewDirection), //0xA0 0xC8
             ...this._cmdAllPixelsOn(this.allPixelsOn), //0xA4
@@ -144,7 +144,7 @@ class DogS102 {
             ...this._cmdVolume(this.contrast), //0x81 0x10
             ...this._cmdAdvProgCtrl(this.temperatureCompensation, this.columnWrapOn, this.pageWrapOn), //0xFA 0x90
             ...this._cmdSleep(this.sleeping) //0xAF
-        ];
+        ]);
     }
 
     /**
@@ -244,7 +244,6 @@ class DogS102 {
             this.sendData(new Array(this._width).fill(0))
         }
         this.moveToColPage(0,0);
-        this._processMsg();
     }
 
     /** Command to set the contrast of the display
@@ -254,18 +253,25 @@ class DogS102 {
         value = Math.max(this.minContrast,value);
         value = Math.min(value, this._maxContrast);
         this.contrast = value;
-        return this._cmdVolume(value)
+        this._enqueue(0, this._cmdVolume(value));
     };
 
     /** Command to set horizontal and vertical wrapping of the display.
     * @param {number} mode - 0: no wrapping (default), 1: column wrapping, 2: page wrapping, 3: both
     */
     setWrapping(mode=0){
-        this.pageWrapOn = mode & 2;
+        this.pageWrapOn = (mode & 2)>>1;
         this.columnWrapOn = mode & 1;
-        return this._cmdAdvProgCtrl(true, mode & 1, mode & 2)
+        this._enqueue(0,this._cmdAdvProgCtrl(true, this.columnWrapOn, this.pageWrapOn));
     }
-    
+
+    /** Setter to set the display to inverted mode.
+    * @type {boolean} value - true: inverted display, false: normal display
+    */
+    set inverted (value = false){
+        this._enqueue(0,this._cmdInverted(value));
+    }
+
 }
 
 

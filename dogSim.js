@@ -1,3 +1,4 @@
+const { OutgoingMessage } = require('http');
 const { stdout } = require('process');
 
 const promisify = require('util').promisify;
@@ -36,6 +37,11 @@ class Simulator {
             this._linesPerPage = 4;
             this._shiftAddr = options.offset || 0;
             this._maxContrast = 63;
+            this._inverted = false;
+            this._hOrientation = 0;
+            this._vOrientation = 0;
+            this._colWrapping = false;
+            this._pageWrapping = false;
             this._ramPages = options.ramPages || 8;
             this._width = options.width || 102;
             this._offset = options.offset || 30;
@@ -75,10 +81,16 @@ class Simulator {
     }
     
     set hOrientation (value){
+        if (this._hOrientation != value) {
+            this._currentColumn = this._width - this._currentColumn - 1;
+        }
         this._hOrientation = value; //0: normal, 1: mirror
     }
     
     set vOrientation (value){
+        if (this._vOrientation != value) {
+            this._currentPage = this._ramPages - this._currentPage - 1;
+        }
         this._vOrientation = value; //0: normal, 1: mirror
     }
 
@@ -129,8 +141,8 @@ class Simulator {
                             this._mem = -1;                       
                             break;                    
                         case "advProgCtrl":
-                            this.colWrapping = (message.sendBuffer[i] & 2);  
-                            this.pageWrapping = (message.sendBuffer[i] & 1);  
+                            this._colWrapping = ((message.sendBuffer[i] & 2)>>1);  
+                            this._pageWrapping = (message.sendBuffer[i] & 1);  
                             this._twoByteProcessing = "";
                             this._mem = -1;                       
                             break;                    
@@ -143,7 +155,7 @@ class Simulator {
                                 this._TTY.cursorTo(this._currentColumn,this._currentPage*this._linesPerPage);
                             }
                             else if ((message.sendBuffer[i] & 0xAE) == 0xAE) {this.sleep = message.sendBuffer[i] & 1}  //175...176
-                            else if ((message.sendBuffer[i] & 0xA6) == 0xA6) {this.inverted = message.sendBuffer[i] & 1} //166...167
+                            else if ((message.sendBuffer[i] & 0xA6) == 0xA6) {this._inverted = message.sendBuffer[i] & 1} //166...167
                             else if ((message.sendBuffer[i] & 0xA4) == 0xA4) {this.allPixelsOn = message.sendBuffer[i] & 1} //164...165
                             else if ((message.sendBuffer[i] & 0xA0) == 0xA0) {this.hOrientation = message.sendBuffer[i] & 1} //160...161
                             else if ((message.sendBuffer[i] & 0x81) == 0x81) {this._twoByteProcessing = "volume"} //129
@@ -164,34 +176,77 @@ class Simulator {
             default:
                 let msgWidth = message.byteLength;
                 let output = '';
+                let msg = Array.from(message.sendBuffer);
                 if (msgWidth > 0) {
-                    let max = Math.min(msgWidth,(this._ttyWidth-this._currentColumn));
-                    for (let i = 0; i < this._linesPerPage; i++) {  //Bit index (pixel)
-                        this.   _TTY.cursorTo(this._currentColumn, (this._currentPage * this._linesPerPage) + i);
-                        for (let j = 0; j < max; j++) {  //column index
-                            switch ((message.sendBuffer[j] >> i*2) & 0x03) {
-                            case 0:
-                                output+='\u0020';
-                                break;
-                            case 1:
-                                output+='\u2580';
-                                break;
-                            case 2:
-                                output+='\u2584';
-                                break;
-                            case 3:
-                                output+='\u2588';
-                                break;
-                            default:
-                                break;
+                    do {
+                        //calculate available space in active row
+                        let space = 0;
+                        if (!this._hOrientation) { //horizontal orientation normal
+                            space = this._width - this._currentColumn;
+                        } else { //horizontal orientation mirrored
+                            space = this._currentColumn +1
+                        }
+                        //splice out data from start or end of msg for the current row
+                        let pack = msg.splice(0,space);
+                        //calculate start and end position and increment or decrement depending on orientation
+                        let hDir = this._hOrientation?-1:1;
+                        let vDir = this._vOrientation?-1:1;
+                        
+                        //loop over the output text and write it to the display
+                        for (let i = 0; i < this._linesPerPage; i++) {  //Bit index (pixel)
+                            if (this._hOrientation) {
+                                this._TTY.cursorTo(this._currentColumn-pack.length + 1,this._currentPage*this._linesPerPage + !this._vOrientation * i + this._vOrientation * Math.abs(i-3));
+                            } else {
+                                this._TTY.cursorTo(this._currentColumn, (this._currentPage * this._linesPerPage) + !this._vOrientation * i + this._vOrientation * Math.abs(i-3));
+                            }
+                            let nextChar = '';
+                            for (let j = 0; j < pack.length; j++) {  //column index
+                                let pattern = (pack[j] >> i*2) & 0x03;
+                                if (this._vOrientation) pattern = (((pattern<<2)+pattern)>>1)&0x03;
+                                if (this._inverted) pattern = ~(0x04|pattern)&0x03;
+                                switch (pattern) {
+                                case 0:
+                                    nextChar='\u0020';
+                                    break;
+                                case 1:
+                                    nextChar='\u2580';
+                                    break;
+                                case 2:
+                                    nextChar='\u2584';
+                                    break;
+                                case 3:
+                                    nextChar='\u2588';
+                                    break;
+                                default:
+                                    break;
+                                }
+                                if (this._hOrientation) {   
+                                    output = nextChar + output;
+                                } else {
+                                    output = output + nextChar;
+                                }
+                            }
+                            // output.padEnd(this._ttyWidth,' ');
+                            this._TTY.write(output);
+                            output='';
+                        }
+                        //depending on wrapping setting, move cursor to next line and/or column
+                        this._currentColumn = (this._currentColumn + hDir * pack.length);
+                        if (space > 0 && (this._currentColumn == -1 || this._currentColumn == this._width)){ //reached edge ==> wrap
+                            if (this._pageWrapping) {this._currentPage = (this._currentPage+ vDir)%this._ramPages}
+                        }
+                        if (this._colWrapping) {
+                            this._currentColumn = (this._currentColumn+this._width)%this._width;
+                        } else {
+                            if (this._hOrientation) {
+                                this._currentColumn = Math.max(0,this._currentColumn);
+                            } else {
+                                this._currentColumn = Math.min(this._width - 1, this._currentColumn)
                             }
                         }
-                        // output.padEnd(this._ttyWidth,' ');
-                        this._TTY.write(output);
-                        output='';
-                    }
-                }
 
+                    } while (msg.length > 0);
+                }
                 break;
         }
         if (this._frequency > 0) {
@@ -204,6 +259,8 @@ class Simulator {
         }
     }
 
+    writeTTY = function(){
+    }
 
 //  /** Moves the cursor to the given position on TTY terminal 
 //    * @param {number} page - target page 0..this._ramPages (since 4 lines are needed per ram page, this
