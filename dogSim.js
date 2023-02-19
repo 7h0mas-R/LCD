@@ -96,11 +96,13 @@ class Simulator {
 
     set colAddress(value){
         this._currentColumn = value;
+        if (this._hOrientation) this._currentColumn = this._width - this._currentColumn - 1;
         this._TTY.cursorTo(this._currentColumn, this._currentPage*this._linesPerPage);
     }
 
     set pageAddress(value){
         this._currentPage = value;
+        if (this._vOrientation) this._currentPage = this._ramPages - this._currentPage - 1;
         this._TTY.cursorTo(this._currentColumn,this._currentPage*this._linesPerPage);
     }
 
@@ -231,17 +233,17 @@ class Simulator {
                             output='';
                         }
                         //depending on wrapping setting, move cursor to next line and/or column
-                        this._currentColumn = (this._currentColumn + hDir * pack.length);
-                        if (space > 0 && (this._currentColumn == -1 || this._currentColumn == this._width)){ //reached edge ==> wrap
-                            if (this._pageWrapping) {this._currentPage = (this._currentPage+ vDir)%this._ramPages}
-                        }
-                        if (this._colWrapping) {
-                            this._currentColumn = (this._currentColumn+this._width)%this._width;
-                        } else {
-                            if (this._hOrientation) {
-                                this._currentColumn = Math.max(0,this._currentColumn);
+                        this._currentColumn = (this._currentColumn + hDir * (pack.length - 1));
+                        if (space > 0 && (this._currentColumn == 0 || this._currentColumn == this._width - 1)){ //reached edge ==> wrap
+                            if (this._pageWrapping) {this._currentPage = (this._currentPage+ vDir + this._ramPages)%this._ramPages}
+                            if (this._colWrapping) {
+                                this._currentColumn = (this._currentColumn - hDir * (this._width-1))%this._width;
                             } else {
-                                this._currentColumn = Math.min(this._width - 1, this._currentColumn)
+                                if (this._hOrientation) {
+                                    this._currentColumn = Math.max(0,this._currentColumn);
+                                } else {
+                                    this._currentColumn = Math.min(this._width - 1, this._currentColumn)
+                                }
                             }
                         }
 

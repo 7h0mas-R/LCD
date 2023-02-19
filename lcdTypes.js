@@ -77,6 +77,7 @@ class DogS102 {
         this._msgQueue = [];
         this._processing = false;
         this._offset = 0;
+        this._inverted = false;
         this._shiftAddr = 0;
         switch (options.interfaceType) {
             case "SPI":
@@ -129,7 +130,7 @@ class DogS102 {
         this.startLine = options.line || 0;
         this.viewDirection = options.viewDirection || 0;
         this.allPixelsOn = false;
-        this.inverted = options.inverted || false;
+        this._inverted = options.inverted || false;
         this.biasRatio = options.biasRatio || 0;
         this.contrast = options.contrast;
 
@@ -137,7 +138,7 @@ class DogS102 {
             ...this._cmdStartLine(this.startLine), //0x40
             ...this.setViewDirection(this.viewDirection), //0xA0 0xC8
             ...this._cmdAllPixelsOn(this.allPixelsOn), //0xA4
-            ...this.inverted(this.inverted), //0xA6
+            ...this.inverted(this._inverted), //0xA6
             ...this._cmdBiasRatio(this.biasRatio), //0xA2
             ...this._cmdPowerControl(this.booster,this.regulator, this.follower), //0x2F
             ...this._cmdBiasVoltageDevider(this.biasVoltageDevider), //0x27
@@ -269,8 +270,10 @@ class DogS102 {
     * @type {boolean} value - true: inverted display, false: normal display
     */
     set inverted (value = false){
+        this._inverted = value;
         this._enqueue(0,this._cmdInverted(value));
     }
+    get inverted (){return this._inverted}
 
 }
 
