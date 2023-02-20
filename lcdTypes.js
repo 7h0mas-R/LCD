@@ -129,7 +129,7 @@ class DogS102 {
         //Build the init message depending on display type
         this.startLine = options.line || 0;
         this.viewDirection = options.viewDirection || 0;
-        this.allPixelsOn = false;
+        this._allPixelsOn = false;
         this._inverted = options.inverted || false;
         this.biasRatio = options.biasRatio || 0;
         this.contrast = options.contrast;
@@ -146,6 +146,11 @@ class DogS102 {
             ...this._cmdAdvProgCtrl(this.temperatureCompensation, this.columnWrapOn, this.pageWrapOn), //0xFA 0x90
             ...this._cmdSleep(this.sleeping) //0xAF
         ]);
+    }
+
+    set allPixelsOn(value) {
+        this._allPixelsOn = value;
+        this._enqueue(0,this._cmdAllPixelsOn(value));
     }
 
     /**

@@ -38,6 +38,7 @@ class Simulator {
             this._shiftAddr = options.offset || 0;
             this._maxContrast = 63;
             this._inverted = false;
+            this._allPixelsOn = false;
             this._hOrientation = 0;
             this._vOrientation = 0;
             this._colWrapping = false;
@@ -54,6 +55,14 @@ class Simulator {
     //        this._TTY.setDefaultEncoding('ascii');
             //set the background color of the TTY to some yellowish color
         }
+    }
+
+    set allPixelsOn(value) {
+        this._allPixelsOn = value;
+        cursorTo(0,0);
+        clearScreenDown();
+        let msg = '\u2588'.repeat(this._width * this._ramPages * this._linesPerPage);
+        if (value) write(msg);
     }
 
     set commandMode(value) {
@@ -233,20 +242,14 @@ class Simulator {
                             output='';
                         }
                         //depending on wrapping setting, move cursor to next line and/or column
-                        this._currentColumn = (this._currentColumn + hDir * (pack.length - 1));
-                        if (space > 0 && (this._currentColumn == 0 || this._currentColumn == this._width - 1)){ //reached edge ==> wrap
-                            if (this._pageWrapping) {this._currentPage = (this._currentPage+ vDir + this._ramPages)%this._ramPages}
-                            if (this._colWrapping) {
-                                this._currentColumn = (this._currentColumn - hDir * (this._width-1))%this._width;
-                            } else {
-                                if (this._hOrientation) {
-                                    this._currentColumn = Math.max(0,this._currentColumn);
-                                } else {
-                                    this._currentColumn = Math.min(this._width - 1, this._currentColumn)
-                                }
-                            }
+                        this._currentColumn = (this._currentColumn + hDir * pack.length);
+                        if (this._colWrapping) {
+                            if (this._pageWrapping && (this._currentColumn == -1 || this._currentColumn == this._width)) {this._currentPage = (this._currentPage+ vDir + this._ramPages)%this._ramPages}
+                            this._currentColumn = (this._currentColumn + this._width)%this._width;
+                        } else {
+                            //end of lilne reached and no wrapping ==> flush the rest of the message
+                            msg = [];
                         }
-
                     } while (msg.length > 0);
                 }
                 break;
