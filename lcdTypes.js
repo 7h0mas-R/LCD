@@ -79,28 +79,6 @@ class DogS102 {
         this._offset = 0;
         this._inverted = false;
         this._shiftAddr = 0;
-        switch (options.interfaceType) {
-            case "SPI":
-                this.biasVoltageDevider = 7;
-                this.booster = true;
-                this.regulator = true;
-                this.follower = true;
-                this.interface = "";
-                this.temperatureCompensation = true;
-                break;
-        
-            case "TTY":
-                const dogSim = require('./dogSim');
-                // this.interface = new dogSim.Simulator;
-                this.interface = dogSim.open(options, (error, message) => {
-                    if (!error) {
-                        this._interfaceOpened = true;
-                        this._processMsg();
-                    }
-                });
-            default:
-                break;
-        }
     }
 
     /* --+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+-- 
@@ -125,7 +103,46 @@ class DogS102 {
     * Command to initialize the display. Options determine initial settings for the display
     * @param {initOptions} options - Object with options for initialization
     */
-    init(options={}){
+    static async initialize(options={}) {
+        return new Promise((resolve, reject) => {
+            switch (options.interfaceType) {
+                case "SPI":
+                    this.biasVoltageDevider = 7;
+                    this.booster = true;
+                    this.regulator = true;
+                    this.follower = true;
+                    this.interface = "";
+                    this.temperatureCompensation = true;
+                    break;
+                    const spiInterface = require('spi-device');
+                    this.interface =  spiInterface.open(0,0,(err) =>{
+                        if (err) {
+                            this._interfaceOpened = false;
+                            reject(err);
+                        } else {
+                            this._interfaceOpened = true;
+                            resolve(this);
+                        }
+                    });
+                case "TTY":
+                    const dogSim = require('./dogSim');
+                    // this.interface = new dogSim.Simulator;
+                    this.interface = dogSim.open(options, (error) => {
+                        if (!error) {
+                            this._interfaceOpened = true;
+                            resolve(this);
+                        } else {
+                            this._interfaceOpened = false;
+                            reject(error);
+                        }
+                    });
+                default:
+                    break;
+            }
+        })   
+    }
+
+    _init(options={}){
         //Build the init message depending on display type
         this.startLine = options.line || 0;
         this.viewDirection = options.viewDirection || 0;
